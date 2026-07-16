@@ -2,10 +2,28 @@
 #include "./ui_mainwindow.h"
 #include<QMessageBox>
 #include <QApplication>
+#include <QPainter>
+#include <QPixmap>
 #include <QStyle>
 #include "Shared/ConfigManage.h"
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+
+static QIcon createTrayIcon()
+{
+    QPixmap pix(64, 64);
+    pix.fill(Qt::transparent);
+    QPainter p(&pix);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setBrush(QColor(0, 120, 215));
+    p.setPen(Qt::NoPen);
+    p.drawRoundedRect(4, 4, 56, 56, 8, 8);
+    p.setPen(QPen(Qt::white, 3));
+    p.setFont(QFont("Segoe UI", 28, QFont::Bold));
+    p.drawText(pix.rect(), Qt::AlignCenter, "P");
+    p.end();
+    return QIcon(pix);
+}
 
 MainWindow::MainWindow(Server&s,QWidget *parent)
     : QMainWindow(parent)
@@ -18,7 +36,7 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     QApplication::setQuitOnLastWindowClosed(false);
 
     trayIcon = new QSystemTrayIcon(this);
-    trayIcon->setIcon(QApplication::style()->standardIcon(QStyle::SP_ComputerIcon));
+    trayIcon->setIcon(createTrayIcon());
     trayIcon->setToolTip("overplus");
     trayIcon->setVisible(true);
 
