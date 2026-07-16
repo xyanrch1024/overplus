@@ -1,0 +1,65 @@
+name: Build Release
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Qt5
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '5.15.2'
+          arch: 'win64_msvc2019_64'
+          modules: 'qt5base qt5widgets qt5gui'
+          set-env: true
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -S ${{ github.workspace }} `
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+            -DCMAKE_TOOLCHAIN_FILE="${{ env.VCPKG_INSTALLATION_ROOT }}\scripts\buildsystems\vcpkg.cmake" `
+            -DCMAKE_PREFIX_PATH="${{ env.Qt5_DIR }}" `
+            -DBoost_USE_STATIC_LIBS=ON `
+            -DVCPKG_TARGET_TRIPLET=x64-windows
+
+      - name: Build
+        run: cmake --build build --config ${{ env.BUILD_TYPE }}
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $dist = "overplus-client"
+          New-Item -ItemType Directory -Force -Path $dist
+          Copy-Item "build\Client\Release\overplus_client.exe" $dist\
+          @'
+          {
+            "run_type": "client",
+            "local_addr": "0.0.0.0",
+            "local_port": "1080",
+            "remote_addr": "",
+            "remote_port": "",
+            "user_name": "",
+            "password": ""
+          }
+          '@ | Out-File -Encoding utf8 "$dist\client.json"
+          Compress-Archive -Path "$dist\*" -DestinationPath "overplus-client-windows.zip"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: overplus-client-windows
+          path: overplus-client-windows.zip
