@@ -4,6 +4,7 @@ set(proto_SRCS
         trojan/TrojanReq.cpp
         trojan/UDPPacket.cpp
         VProtocal/VRequest.cpp
+        http/http.cpp
         )
 
 add_library(proto ${proto_SRCS})

@@ -27,31 +27,29 @@ Session::Session(boost::asio::io_context& context, boost::asio::ssl::context& ss
 
 void Session::start()
 {
-    state_ = HANDSHAKE;
-    sock5_handshake();
-}
-
-void Session::sock5_handshake()
-{
     auto self(shared_from_this());
-    in_socket.async_read_some(boost::asio::buffer(in_buf), [self, this](const boost::system::error_code& ec, size_t len) {
-        if (!ec) {
-
-            AuthReq auth_req;
-            if (auth_req.unstream(in_buf)) {
+    in_socket.async_read_some(boost::asio::buffer(in_buf),
+        [this, self](const boost::system::error_code& ec, size_t len) {
+            if (ec) {
+                destroy();
+                return;
+            }
+            if (in_buf[0] == (char)0x05) {
+                AuthReq auth_req;
+                if (!auth_req.unstream(in_buf)) {
+                    ERROR_LOG << "Receive invalid message";
+                    destroy();
+                    return;
+                }
                 NOTICE_LOG << "receive message:" << auth_req;
                 write_sock5_hanshake_reply(auth_req);
-
+            } else if (in_buf[0] == 'C' || in_buf[0] == 'c') {
+                http_connect_handshake(std::string(in_buf.data(), len));
             } else {
-                ERROR_LOG << "Receive invalid message";
+                ERROR_LOG << "unknown protocol, first byte: " << (int)in_buf[0];
                 destroy();
             }
-
-        } else {
-            ERROR_LOG << "sock5 handshake error:" << ec.message();
-            destroy();
-        }
-    });
+        });
 }
 void Session::write_sock5_hanshake_reply(AuthReq& req)
 {
@@ -165,11 +163,15 @@ void Session::do_sent_v_req()
     request.stream(message_buf);
     DEBUG_LOG<<" v protocol send buf:"<<message_buf;
 
-    boost::asio::async_write(out_socket, boost::asio::buffer(message_buf), // Always 10-byte according to RFC1928
+    boost::asio::async_write(out_socket, boost::asio::buffer(message_buf),
         [this, self](boost::system::error_code ec, std::size_t length) {
             if (!ec) {
                 state_ = FORWARD;
-                write_socks5_response(); // Read both sockets
+                if (response_sent_) {
+                    read_packet(3);
+                } else {
+                    write_socks5_response();
+                }
             } else
                 ERROR_LOG << "SOCKS5 response write:" << ec.message();
         });
@@ -199,6 +201,46 @@ void Session::write_socks5_response()
                 ERROR_LOG << "SOCKS5 response write:" << ec.message();
         });
 }
+void Session::http_connect_handshake(const std::string& initial)
+{
+    auto self(shared_from_this());
+    auto buf = std::make_shared<std::string>(initial);
+    boost::asio::async_read_until(in_socket, boost::asio::dynamic_buffer(*buf), "\r\n",
+        [this, self, buf](const boost::system::error_code& ec, size_t) {
+            if (ec) {
+                ERROR_LOG << "HTTP handshake read error: " << ec.message();
+                destroy();
+                return;
+            }
+            if (!http_req.unstream(*buf)) {
+                ERROR_LOG << "Invalid HTTP CONNECT request";
+                destroy();
+                return;
+            }
+            socks5_req.remote_host = http_req.host;
+            socks5_req.remote_port = http_req.port;
+            NOTICE_LOG << "HTTP CONNECT " << http_req.host << ":" << http_req.port;
+            write_http_connect_response();
+        });
+}
+
+void Session::write_http_connect_response()
+{
+    auto self(shared_from_this());
+    response_sent_ = true;
+    message_buf.clear();
+    HttpResponse::ok(message_buf);
+    boost::asio::async_write(in_socket, boost::asio::buffer(message_buf),
+        [this, self](boost::system::error_code ec, std::size_t length) {
+            if (!ec) {
+                do_resolve();
+            } else {
+                ERROR_LOG << "HTTP response write error: " << ec.message();
+                destroy();
+            }
+        });
+}
+
 void Session::read_packet(int direction)
 {
     auto self(shared_from_this());

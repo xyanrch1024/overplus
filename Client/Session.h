@@ -1,6 +1,7 @@
 
 #pragma once
 #include "Shared/Log.h"
+#include <Protocol/http/http.h>
 #include <Protocol/socks5/socks5.h>
 #include <boost/asio.hpp>
 #include <boost/asio/io_context.hpp>
@@ -21,10 +22,7 @@ public:
     Session(boost::asio::io_context& context, boost::asio::ssl::context& ssl);
 
     void start();
-    void do_read();
     boost::asio::ip::tcp::socket& socket();
-    // void handle_sock5();
-    void sock5_handshake();
     void read_packet(int);
     void write_sock5_hanshake_reply(AuthReq& req);
     void read_socks5_request();
@@ -35,23 +33,24 @@ public:
     void do_sent_v_req();
     void do_ssl_handshake();
     void destroy();
+    void http_connect_handshake(const std::string& initial);
+    void write_http_connect_response();
 
 private:
     static constexpr size_t MAX_BUFF_SIZE = 8192;
     boost::asio::io_context& context_;
     tcp::socket in_socket;
 
-    //
     std::string remote_host;
     std::string remote_port;
-    //
     tcp::resolver resolver_;
-    //
     std::vector<char> in_buf;
     std::vector<char> out_buf;
     std::string message_buf;
     Request socks5_req;
+    HttpRequest http_req;
     State state_ { HANDSHAKE };
+    bool response_sent_ = false;
     boost::asio::ssl::context& ssl_ctx;
     boost::asio::ssl::stream<boost::asio::ip::tcp::socket> out_socket;
 };
