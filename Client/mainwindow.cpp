@@ -15,12 +15,12 @@ static QIcon createTrayIcon()
     pix.fill(Qt::transparent);
     QPainter p(&pix);
     p.setRenderHint(QPainter::Antialiasing);
-    p.setBrush(QColor(0, 120, 215));
+    p.setBrush(QColor(0, 180, 0));
     p.setPen(Qt::NoPen);
     p.drawRoundedRect(4, 4, 56, 56, 8, 8);
-    p.setPen(QPen(Qt::white, 3));
-    p.setFont(QFont("Segoe UI", 28, QFont::Bold));
-    p.drawText(pix.rect(), Qt::AlignCenter, "P");
+    p.setPen(QPen(Qt::white, 2));
+    p.setFont(QFont("Segoe UI", 11, QFont::Bold));
+    p.drawText(pix.rect(), Qt::AlignCenter, "overplus");
     p.end();
     return QIcon(pix);
 }
