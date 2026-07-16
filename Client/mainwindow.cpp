@@ -19,8 +19,8 @@ static QIcon createTrayIcon(const QColor& bg)
     p.setPen(Qt::NoPen);
     p.drawRoundedRect(4, 4, 56, 56, 8, 8);
     p.setPen(QPen(Qt::white, 2));
-    p.setFont(QFont("Segoe UI", 11, QFont::Bold));
-    p.drawText(pix.rect(), Qt::AlignCenter, "overplus");
+    p.setFont(QFont("Segoe UI", 28, QFont::Bold));
+    p.drawText(pix.rect(), Qt::AlignCenter, "O");
     p.end();
     return QIcon(pix);
 }
