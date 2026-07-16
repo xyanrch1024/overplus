@@ -9,13 +9,13 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-static QIcon createTrayIcon()
+static QIcon createTrayIcon(const QColor& bg)
 {
     QPixmap pix(64, 64);
     pix.fill(Qt::transparent);
     QPainter p(&pix);
     p.setRenderHint(QPainter::Antialiasing);
-    p.setBrush(QColor(0, 180, 0));
+    p.setBrush(bg);
     p.setPen(Qt::NoPen);
     p.drawRoundedRect(4, 4, 56, 56, 8, 8);
     p.setPen(QPen(Qt::white, 2));
@@ -36,7 +36,7 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     QApplication::setQuitOnLastWindowClosed(false);
 
     trayIcon = new QSystemTrayIcon(this);
-    trayIcon->setIcon(createTrayIcon());
+    trayIcon->setIcon(createTrayIcon(QColor(180, 0, 0)));
     trayIcon->setToolTip("overplus");
     trayIcon->setVisible(true);
 
@@ -75,6 +75,7 @@ MainWindow::~MainWindow()
      ui->CONNECT_BUTTON->setEnabled(false);
      ui->DISCONNECT_BUTTON->setEnabled(true);
     ui->CONNECTION_STATUS->setText("CONNECTED");
+    trayIcon->setIcon(createTrayIcon(QColor(0, 180, 0)));
 
     auto& config = ConfigManage::instance().client_cfg;
     config.remote_addr = ui->HOST_NAME->text().toStdString();
@@ -97,6 +98,7 @@ MainWindow::~MainWindow()
       ui->CONNECT_BUTTON->setEnabled(true);
       ui->DISCONNECT_BUTTON->setEnabled(false);
       ui->CONNECTION_STATUS->setText("DISCONNECTED");
+      trayIcon->setIcon(createTrayIcon(QColor(180, 0, 0)));
 
  }
  void MainWindow::onCheckBoxClick(){
