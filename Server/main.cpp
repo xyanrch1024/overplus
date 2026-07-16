@@ -7,9 +7,21 @@
 #include <boost/program_options.hpp>
 #include <exception>
 #include <string>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 namespace po = boost::program_options;
+
+static void SetupUTF8Console()
+{
+#ifdef _WIN32
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+#endif
+}
 int main(int argc, char* argv[])
 {
+    SetupUTF8Console();
     try {
         std::string config_file;
         po::options_description desc("Allowed options");

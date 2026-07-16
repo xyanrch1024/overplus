@@ -11,6 +11,12 @@ AppendFile::AppendFile(const char* filename)
 {
     fp_ = fopen(filename, "a");
     assert(fp_);
+#ifdef _WIN32
+    if (ftell(fp_) == 0) {
+        const unsigned char bom[] = {0xEF, 0xBB, 0xBF};
+        ::fwrite(bom, 1, 3, fp_);
+    }
+#endif
 }
 
 AppendFile::~AppendFile()

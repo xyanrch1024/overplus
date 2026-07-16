@@ -1,4 +1,5 @@
 #include "Log.h"
+#include "Encoding.h"
 #include <ctime>
 #include <ostream>
 #include <thread>
@@ -59,12 +60,10 @@ void logger::set_log_destination(Destination dest)
 }
 logger::~logger()
 {
-    // auto buf = impl.log_stream_.str();
     impl.log_stream_ << "\n";
-    output_(impl.log_stream_.str());
+    output_(ToUTF8(impl.log_stream_.str()));
     if (impl.level_ == L_ERROR_EXIT) {
         flush_();
-        // abort();
     }
 }
 logger::logger(const char* file, const char* func, int line, Loglevel level)

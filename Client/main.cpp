@@ -15,6 +15,12 @@
 const char* LOCAL_PROXY_ADDR = "127.0.0.1";
 const char* LOCAL_PROXY_PORT = "1080";
 const char* LOCAL_PROXY_PROTOCOL = "socks://127.0.0.1:1080";
+
+static void SetupUTF8Console()
+{
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+}
 bool disable_system_socks_proxy()
 {
     HKEY hRoot = HKEY_CURRENT_USER;
@@ -78,6 +84,7 @@ bool enable_system_socks_proxy()
 }
 int main(int argc, char* argv[])
 {
+    SetupUTF8Console();
     QFileInfo file("client.json");
     auto& config = ConfigManage::instance().client_cfg;
     if (file.isFile()) {

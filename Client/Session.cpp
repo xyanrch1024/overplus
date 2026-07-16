@@ -58,6 +58,7 @@ void Session::write_sock5_hanshake_reply(AuthReq& req)
     if (it == req.methods.cend()) {
         ERROR_LOG << "Now only support no password auth";
         destroy();
+        return;
     }
     {
         AuthRes authRes;
@@ -86,7 +87,7 @@ void Session::read_socks5_request()
         [this, self](boost::system::error_code ec, std::size_t length) {
             if (!ec) {
                 if (!socks5_req.unsteam(in_buf, length)) {
-                    ERROR_LOG << "decode mesage error";
+                    ERROR_LOG << "decode message error";
                     destroy();
                     return;
                 }
@@ -103,7 +104,6 @@ void Session::read_socks5_request()
                 ERROR_LOG << "SOCKS5 request read:" << ec.message();
                 destroy();
             }
-            // ERROR_LOG << "SOCKS5 request read:" << ec.message();
         });
 }
 
@@ -161,7 +161,7 @@ void Session::do_sent_v_req()
     request.address = socks5_req.remote_host;
     request.port = socks5_req.remote_port;
     request.stream(message_buf);
-    DEBUG_LOG<<" v protocol send buf:"<<message_buf;
+    DEBUG_LOG << "v protocol request -> " << request.user_name << "@" << request.address << ":" << request.port;
 
     boost::asio::async_write(out_socket, boost::asio::buffer(message_buf),
         [this, self](boost::system::error_code ec, std::size_t length) {
@@ -173,7 +173,7 @@ void Session::do_sent_v_req()
                     write_socks5_response();
                 }
             } else
-                ERROR_LOG << "SOCKS5 response write:" << ec.message();
+                ERROR_LOG << "VProtocol request write failed " << ec.message();
         });
 }
 void Session::write_socks5_response()
@@ -255,7 +255,7 @@ void Session::read_packet(int direction)
                     write_packet(1, length);
                 } else // if (ec != boost::asio::error::eof)
                 {
-                    ERROR_LOG << "closing session. Client socket read error" << ec.message();
+                    ERROR_LOG << "closing session. Client socket read error " << ec.message();
                     // Most probably client closed socket. Let's close both sockets and exit session.
                     destroy();
                     // context_.stop();
@@ -272,10 +272,8 @@ void Session::read_packet(int direction)
                     write_packet(2, length);
                 } else // if (ec != boost::asio::error::eof)
                 {
-                    ERROR_LOG << "closing session. Remote socket read error" << ec.message();
-                    // Most probably remote server closed socket. Let's close both sockets and exit session.
+                    ERROR_LOG << "closing session. Remote socket read error " << ec.message();
                     destroy();
-                    // context_.stop();
                 }
             });
 }
@@ -290,7 +288,7 @@ void Session::write_packet(int direction, size_t len)
                 if (!ec)
                     read_packet(direction);
                 else {
-                    ERROR_LOG << "closing session. Client socket write error" << ec.message();
+                    ERROR_LOG << "closing session. Client socket write error " << ec.message();
                     // Most probably client closed socket. Let's close both sockets and exit session.
                     destroy();
                 }
@@ -302,8 +300,7 @@ void Session::write_packet(int direction, size_t len)
                 if (!ec)
                     read_packet(direction);
                 else {
-                    ERROR_LOG << "closing session. Remote socket write error", ec.message();
-                    // Most probably remote server closed socket. Let's close both sockets and exit session.
+                    ERROR_LOG << "closing session. Remote socket write error " << ec.message();
                     destroy();
                 }
             });
@@ -316,7 +313,7 @@ boost::asio::ip::tcp::socket& Session::socket()
 }
 void Session::destroy()
 {
-    ERROR_LOG << "destroy session";
+    NOTICE_LOG << "session destroyed";
     // Log::log_with_endpoint(in_endpoint, "disconnected, " + to_string(recv_len) + " bytes received, " + to_string(sent_len) + " bytes sent, lasted for " + to_string(time(nullptr) - start_time) + " seconds", Log::INFO);
     boost::system::error_code ec;
     resolver_.cancel();
