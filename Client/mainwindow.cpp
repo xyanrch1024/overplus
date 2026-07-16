@@ -15,6 +15,7 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
 
     ui->setupUi(this);
     setWindowTitle("overplus");
+    QApplication::setQuitOnLastWindowClosed(false);
 
     trayIcon = new QSystemTrayIcon(this);
     trayIcon->setIcon(QApplication::style()->standardIcon(QStyle::SP_ComputerIcon));
