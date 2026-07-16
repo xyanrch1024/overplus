@@ -112,21 +112,21 @@ void Session::read_socks5_request()
 void Session::do_resolve()
 {
     auto self(shared_from_this());
-    resolver_.async_resolve(tcp::resolver::query(remote_host, remote_port),
-        [this, self](const boost::system::error_code& ec, tcp::resolver::iterator it) {
-            if (!ec) {
-                do_connect(it);
+    resolver_.async_resolve(remote_host, remote_port,
+        [this, self](const boost::system::error_code& ec, tcp::resolver::results_type results) {
+            if (!ec && !results.empty()) {
+                do_connect(*results.begin());
             } else {
                 ERROR_LOG << "failed to resolve " << remote_host << ":" << remote_port << " " << ec.message();
                 destroy();
             }
         });
 }
-void Session::do_connect(tcp::resolver::iterator& it)
+void Session::do_connect(tcp::endpoint endpoint)
 {
     auto self(shared_from_this());
     //
-    out_socket.lowest_layer().async_connect(*it,
+    out_socket.lowest_layer().async_connect(endpoint,
         [ this, self](const boost::system::error_code& ec) {
             if (!ec) {
                 DEBUG_LOG << "connected to " << remote_host << ":" << remote_port;
@@ -184,7 +184,7 @@ void Session::write_socks5_response()
         reply.reserved = 0x00;
         reply.addrtype = ADDRTYPE::V4;
         reply.repResult = 0x00;
-        reply.realRemoteIP = out_socket.lowest_layer().remote_endpoint().address().to_v4().to_ulong();
+        reply.realRemoteIP = out_socket.lowest_layer().remote_endpoint().address().to_v4().to_uint();
         reply.realRemotePort = htons(out_socket.lowest_layer().remote_endpoint().port());
         message_buf.clear();
         reply.stream(message_buf);

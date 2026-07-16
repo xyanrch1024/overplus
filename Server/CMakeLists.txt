@@ -1,4 +1,7 @@
 message(STATUS "Enter Server CMakeList ...")
+if (MSVC)
+    add_compile_options(/bigobj)
+endif()
 
 set(SRCS
         TlsSession.cpp

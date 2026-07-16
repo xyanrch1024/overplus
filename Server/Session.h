@@ -55,13 +55,13 @@ public:
 
     void do_resolve();
 
-    void do_connect(tcp::resolver::iterator&);
+    void do_connect(tcp::endpoint endpoint);
     void udp_upstream_read();
 
     void async_bidirectional_write(int, size_t);
     void handle_trojan_udp_proxy();
     void udp_async_bidirectional_read(int direction);
-    void udp_async_bidirectional_write(int, const std::string&, boost::asio::ip::udp::resolver::iterator);
+    void udp_async_bidirectional_write(int, const std::string&, boost::asio::ip::udp::endpoint);
 
      virtual void upstream_tcp_write(int direction, size_t len);
      virtual void upstream_udp_write(int direction, const std::string& packet);

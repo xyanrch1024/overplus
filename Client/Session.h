@@ -29,7 +29,7 @@ public:
     void write_sock5_hanshake_reply(AuthReq& req);
     void read_socks5_request();
     void do_resolve();
-    void do_connect(tcp::resolver::iterator&);
+    void do_connect(tcp::endpoint endpoint);
     void write_socks5_response();
     void write_packet(int, size_t);
     void do_sent_v_req();

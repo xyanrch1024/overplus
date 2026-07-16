@@ -158,16 +158,16 @@ void Session<T>::udp_async_bidirectional_read(int direction)
                                 destroy();
                                 return;
                             }
-                            auto iterator = results.begin();
+                            auto ep = results.begin()->endpoint();
                             for (auto it = results.begin(); it != results.end(); ++it) {
                                 const auto& addr = it->endpoint().address();
                                 if (addr.is_v4()) {
-                                    iterator = it;
+                                    ep = it->endpoint();
                                     break;
                                 }
                             }
 
-                            udp_async_bidirectional_write(1, udp_packet.payload, iterator);
+                            udp_async_bidirectional_write(1, udp_packet.payload, ep);
                         });
                     } else {
                         if (upstream_udp_buff.length() > MAX_BUFF_SIZE) {
@@ -198,7 +198,7 @@ void Session<T>::udp_async_bidirectional_read(int direction)
                     DEBUG_LOG << "<-- " << std::to_string(length) << " bytes";
                     auto packet = UDPPacket::generate(udp_sender_endpoint, std::string(out_buf.data(), length));
 
-                    udp_async_bidirectional_write(2, packet, boost::asio::ip::udp::resolver::iterator());
+                    udp_async_bidirectional_write(2, packet, boost::asio::ip::udp::endpoint());
                 } else // if (ec != boost::asio::error::eof)
                 {
                     if (ec != boost::asio::error::eof && ec != boost::asio::error::operation_aborted) {
@@ -213,13 +213,13 @@ void Session<T>::udp_async_bidirectional_read(int direction)
     }
 }
 template<class T>
-void Session<T>::udp_async_bidirectional_write(int direction, const std::string& packet, boost::asio::ip::udp::resolver::iterator udp_ep)
+void Session<T>::udp_async_bidirectional_write(int direction, const std::string& packet, boost::asio::ip::udp::endpoint udp_ep)
 {
     auto self(this->shared_from_this());
 
     switch (direction) {
     case 1:
-        downstream_udp_socket.async_send_to(boost::asio::buffer(packet), *udp_ep,
+        downstream_udp_socket.async_send_to(boost::asio::buffer(packet), udp_ep,
             [this, self, direction](boost::system::error_code ec, std::size_t length) {
                 if (!ec)
                     udp_async_bidirectional_read(direction);
@@ -244,10 +244,10 @@ void Session<T>::do_resolve()
     auto self(this->shared_from_this());
     remote_host = vprotocol ? v_req.address : trojanReq.address.address;
     remote_port = std::to_string(vprotocol ? v_req.port : trojanReq.address.port);
-    resolver_.async_resolve(tcp::resolver::query(remote_host, remote_port),
-        [this, self](const boost::system::error_code& ec, tcp::resolver::iterator it) {
-            if (!ec) {
-                do_connect(it);
+    resolver_.async_resolve(remote_host, remote_port,
+        [this, self](const boost::system::error_code& ec, tcp::resolver::results_type results) {
+            if (!ec && !results.empty()) {
+                do_connect(*results.begin());
             } else {
                 ERROR_LOG << "failed to resolve " << remote_host << ":" << remote_port << " " << ec.message();
                 destroy();
@@ -255,12 +255,12 @@ void Session<T>::do_resolve()
         });
 }
 template<class T>
-void Session<T>::do_connect(tcp::resolver::iterator& it)
+void Session<T>::do_connect(tcp::endpoint endpoint)
 {
     auto self(this->shared_from_this());
     state_ = FORWARD;
-    downstream_socket.async_connect(*it,
-        [this, self, it](const boost::system::error_code& ec) {
+    downstream_socket.async_connect(endpoint,
+        [this, self](const boost::system::error_code& ec) {
             if (!ec) {
                 boost::asio::socket_base::keep_alive option(true);
                 downstream_socket.set_option(option);

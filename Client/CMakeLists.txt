@@ -1,4 +1,7 @@
 message(STATUS "Enter client CMakeList ...")
+if (MSVC)
+    add_compile_options(/bigobj)
+endif()
 if (WIN32)
     set(CMAKE_AUTOUIC ON)
     set(CMAKE_AUTOMOC ON)
