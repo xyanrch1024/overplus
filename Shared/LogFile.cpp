@@ -2,9 +2,13 @@
 #include <assert.h>
 #include <cstdio>
 #include <mutex>
-#include <dirent.h>
 #include <cstring>
 #include <algorithm>
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <dirent.h>
+#endif
 
 /*  FILE* fp_;
     char buffer_[64 * 1024];
@@ -172,10 +176,26 @@ void LogFile::cleanupOldLogs()
 {
     if (maxKeepDays_ <= 0) return;
 
+    time_t now = time(NULL);
+#ifdef _WIN32
+    struct _finddata_t fileInfo;
+    intptr_t handle = _findfirst("*.*", &fileInfo);
+    if (handle == -1) return;
+    do {
+        if (!(fileInfo.attrib & _A_SUBDIR)) {
+            std::string name(fileInfo.name);
+            time_t logDate = parseLogDate(name, basename_);
+            if (logDate < 0) continue;
+            double daysDiff = difftime(now, logDate) / (60 * 60 * 24);
+            if (daysDiff > maxKeepDays_) {
+                remove(name.c_str());
+            }
+        }
+    } while (_findnext(handle, &fileInfo) == 0);
+    _findclose(handle);
+#else
     DIR* dir = opendir(".");
     if (!dir) return;
-
-    time_t now = time(NULL);
     struct dirent* entry;
     while ((entry = readdir(dir)) != nullptr) {
         if (entry->d_type != DT_REG) continue;
@@ -188,4 +208,5 @@ void LogFile::cleanupOldLogs()
         }
     }
     closedir(dir);
+#endif
 }
