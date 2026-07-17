@@ -3,7 +3,7 @@
 #SERVER_NAME=''
 #SERVER_CERT="/etc/overplus/$SERVER_NAME.crt"
 #SERVER_KEY="/etc/overplus/$SERVER_NAME.crt"
-VERSION="v1.0.5"
+VERSION="v1.0.8"
 blue(){
     echo -e "\033[34m\033[01m$1\033[0m"
 }
@@ -135,7 +135,6 @@ function install_overplus(){
     sed -i "s~VAR_SERVER_CERT~${SERVER_CERT}~" /etc/overplus/server.json
     sed -i "s~VAR_SERVER_KEY~$SERVER_KEY~" /etc/overplus/server.json
     
-    # mkdir -p /var/overplus
     cp /tmp/overplus_extract/overplus.service /etc/systemd/system/overplus.service
     
     cd
