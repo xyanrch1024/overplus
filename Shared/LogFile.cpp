@@ -4,11 +4,7 @@
 #include <mutex>
 #include <cstring>
 #include <algorithm>
-#ifdef _WIN32
-#include <io.h>
-#else
-#include <dirent.h>
-#endif
+#include <filesystem>
 
 /*  FILE* fp_;
     char buffer_[64 * 1024];
@@ -177,36 +173,14 @@ void LogFile::cleanupOldLogs()
     if (maxKeepDays_ <= 0) return;
 
     time_t now = time(NULL);
-#ifdef _WIN32
-    struct _finddata_t fileInfo;
-    intptr_t handle = _findfirst("*.*", &fileInfo);
-    if (handle == -1) return;
-    do {
-        if (!(fileInfo.attrib & _A_SUBDIR)) {
-            std::string name(fileInfo.name);
-            time_t logDate = parseLogDate(name, basename_);
-            if (logDate < 0) continue;
-            double daysDiff = difftime(now, logDate) / (60 * 60 * 24);
-            if (daysDiff > maxKeepDays_) {
-                remove(name.c_str());
-            }
-        }
-    } while (_findnext(handle, &fileInfo) == 0);
-    _findclose(handle);
-#else
-    DIR* dir = opendir(".");
-    if (!dir) return;
-    struct dirent* entry;
-    while ((entry = readdir(dir)) != nullptr) {
-        if (entry->d_type != DT_REG) continue;
-        std::string name(entry->d_name);
+    for (const auto& entry : std::filesystem::directory_iterator(".")) {
+        if (!entry.is_regular_file()) continue;
+        std::string name = entry.path().filename().string();
         time_t logDate = parseLogDate(name, basename_);
         if (logDate < 0) continue;
         double daysDiff = difftime(now, logDate) / (60 * 60 * 24);
         if (daysDiff > maxKeepDays_) {
-            remove(name.c_str());
+            std::filesystem::remove(entry.path());
         }
     }
-    closedir(dir);
-#endif
 }
