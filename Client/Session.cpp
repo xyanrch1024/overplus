@@ -250,12 +250,12 @@ void Session::read_packet(int direction)
         in_socket.async_read_some(boost::asio::buffer(in_buf),
             [this, self](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
-                    DEBUG_LOG << "--> " << std::to_string(length) << " bytes";
+                    DEBUG_LOG << "--> upstream: " << std::to_string(length) << " bytes";
 
                     write_packet(1, length);
                 } else // if (ec != boost::asio::error::eof)
                 {
-                    ERROR_LOG << "closing session. Client socket read error " << ec.message();
+                    ERROR_LOG << "closing session. read from local failed " << ec.message();
                     // Most probably client closed socket. Let's close both sockets and exit session.
                     destroy();
                     // context_.stop();
@@ -267,12 +267,12 @@ void Session::read_packet(int direction)
             [this, self](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
 
-                    DEBUG_LOG << "<-- " << std::to_string(length) << " bytes";
+                    DEBUG_LOG << "<-- local: " << std::to_string(length) << " bytes";
 
                     write_packet(2, length);
                 } else // if (ec != boost::asio::error::eof)
                 {
-                    ERROR_LOG << "closing session. Remote socket read error " << ec.message();
+                    ERROR_LOG << "closing session. read from upstream server failed " << ec.message();
                     destroy();
                 }
             });
@@ -288,7 +288,7 @@ void Session::write_packet(int direction, size_t len)
                 if (!ec)
                     read_packet(direction);
                 else {
-                    ERROR_LOG << "closing session. Client socket write error " << ec.message();
+                    ERROR_LOG << "closing session. write to upstream server failed " << ec.message();
                     // Most probably client closed socket. Let's close both sockets and exit session.
                     destroy();
                 }
@@ -300,7 +300,7 @@ void Session::write_packet(int direction, size_t len)
                 if (!ec)
                     read_packet(direction);
                 else {
-                    ERROR_LOG << "closing session. Remote socket write error " << ec.message();
+                    ERROR_LOG << "closing session. write to local failed " << ec.message();
                     destroy();
                 }
             });
