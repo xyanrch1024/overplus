@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
 
         logger::set_log_level(config.server_cfg.log_level);
         if (!config.server_cfg.log_dir.empty()) {
-            logfile_.reset(new LogFile("server", 10 * 1024 * 1024));
+            logfile_.reset(new LogFile("server", 10 * 1024 * 1024, true, 3, 1024, 30));
             logger::set_log_destination(Destination::D_FILE);
             logger::setOutput([&](std::string&& buf) {
                 logfile_->append(std::move(buf));

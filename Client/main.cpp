@@ -95,7 +95,7 @@ int main(int argc, char* argv[])
         config.local_port = LOCAL_PROXY_PORT;
         config.user_name = "test_usr";
     }
-    LogFile logfile_("overplus", 10 * 1024 * 1024);
+    LogFile logfile_("overplus", 10 * 1024 * 1024, true, 3, 1024, 30);
     // logger::set_log_level(ConfigManage::instance().server_cfg.log_level);
     logger::set_log_destination(Destination::D_FILE);
     logger::setOutput([&](std::string&& buf) {

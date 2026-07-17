@@ -2,6 +2,9 @@
 #include <assert.h>
 #include <cstdio>
 #include <mutex>
+#include <dirent.h>
+#include <cstring>
+#include <algorithm>
 
 /*  FILE* fp_;
     char buffer_[64 * 1024];
@@ -42,11 +45,13 @@ LogFile::LogFile(const std::string& basename,
     off_t rollSize,
     bool threadSafe,
     int flushInterval,
-    int checkEveryN)
+    int checkEveryN,
+    int maxKeepDays)
     : basename_(basename)
     , rollSize_(rollSize)
     , flushInterval_(flushInterval)
     , checkEveryN_(checkEveryN)
+    , maxKeepDays_(maxKeepDays)
     , count_(0)
     , muti_threads(threadSafe)
     // mutex_(threadSafe ? new MutexLock : NULL),
@@ -55,6 +60,7 @@ LogFile::LogFile(const std::string& basename,
     , lastFlush_(0)
 {
     assert(basename.find('/') == std::string::npos);
+    cleanupOldLogs();
     rollFile();
 }
 
@@ -128,7 +134,7 @@ std::string LogFile::getLogFileName(const std::string& basename, time_t* now)
     gmtime_r(now, &tm); // FIXME: localtime_r ?
 
 #endif
-    strftime(timebuf, sizeof timebuf, ".%Y%m%d-%H%M%S", &tm);
+    strftime(timebuf, sizeof timebuf, ".%Y%m%d", &tm);
     filename += timebuf;
 
     /*filename += ProcessInfo::hostname();
@@ -140,4 +146,46 @@ std::string LogFile::getLogFileName(const std::string& basename, time_t* now)
     filename += ".log";
 
     return filename;
+}
+
+time_t LogFile::parseLogDate(const std::string& filename, const std::string& basename)
+{
+    std::string prefix = basename + ".";
+    std::string suffix = ".log";
+    if (filename.find(prefix) != 0 || filename.find(suffix) != filename.size() - suffix.size()) {
+        return -1;
+    }
+    std::string dateStr = filename.substr(prefix.size(), filename.size() - prefix.size() - suffix.size());
+    if (dateStr.size() != 8) {
+        return -1;
+    }
+    struct tm tm = {};
+    if (sscanf(dateStr.c_str(), "%4d%2d%2d", &tm.tm_year, &tm.tm_mon, &tm.tm_mday) != 3) {
+        return -1;
+    }
+    tm.tm_year -= 1900;
+    tm.tm_mon -= 1;
+    return mktime(&tm);
+}
+
+void LogFile::cleanupOldLogs()
+{
+    if (maxKeepDays_ <= 0) return;
+
+    DIR* dir = opendir(".");
+    if (!dir) return;
+
+    time_t now = time(NULL);
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != nullptr) {
+        if (entry->d_type != DT_REG) continue;
+        std::string name(entry->d_name);
+        time_t logDate = parseLogDate(name, basename_);
+        if (logDate < 0) continue;
+        double daysDiff = difftime(now, logDate) / (60 * 60 * 24);
+        if (daysDiff > maxKeepDays_) {
+            remove(name.c_str());
+        }
+    }
+    closedir(dir);
 }

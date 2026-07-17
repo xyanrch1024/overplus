@@ -25,7 +25,8 @@ public:
         off_t rollSize,
         bool threadSafe = true,
         int flushInterval = 3,
-        int checkEveryN = 1024);
+        int checkEveryN = 1024,
+        int maxKeepDays = 30);
     ~LogFile() = default;
 
     void append(std::string&& buf);
@@ -34,13 +35,16 @@ public:
 
 private:
     void append_unlocked(std::string&&);
+    void cleanupOldLogs();
 
     static std::string getLogFileName(const std::string& basename, time_t* now);
+    static time_t parseLogDate(const std::string& filename, const std::string& basename);
 
     const std::string basename_;
     const off_t rollSize_;
     const int flushInterval_;
     const int checkEveryN_;
+    const int maxKeepDays_;
 
     int count_;
     bool muti_threads;
