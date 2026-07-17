@@ -346,7 +346,7 @@ void Session<T>::async_bidirectional_read(int direction)
                 } else // if (ec != boost::asio::error::eof)
                 {
                     if (ec != boost::asio::error::eof && ec != boost::asio::error::operation_aborted) {
-                        ERROR_LOG << "read from client: " << ec.message();
+                        DEBUG_LOG << "read from client: " << ec.message();
                     }
                     destroy();
                     return;
