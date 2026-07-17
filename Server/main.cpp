@@ -60,9 +60,9 @@ int main(int argc, char* argv[])
         Service server;
         server.run();
     } catch (const std::exception& e) {
-        ERROR_LOG << "Server got exception,will exit :" << e.what();
+        ERROR_LOG << "server exception, exiting: " << e.what();
     }
-    NOTICE_LOG << "Server Stopped,will exit";
+    NOTICE_LOG << "server stopped, exiting";
 
     return 0;
 }

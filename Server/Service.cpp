@@ -25,7 +25,7 @@ Service::Service()
     acceptor_.listen();
     if(config_manage.server_cfg.websocketEnabled)
     {
-        NOTICE_LOG<<"listen websocket connection";
+        NOTICE_LOG << "listening for websocket connections";
         do_websocket_accept();
     }
     else
@@ -50,7 +50,7 @@ void Service::do_websocket_accept()
         }
         else
         {
-            NOTICE_LOG << "accept incoming connection fail:" << ec.message();
+            NOTICE_LOG << "accept failed: " << ec.message();
 
         }
         do_websocket_accept();
@@ -80,12 +80,12 @@ void Service::do_accept() {
             }
         };
         if (!acceptor_.is_open()) {
-            NOTICE_LOG << "Acceptor socket is not open, stop calling myself";
+            NOTICE_LOG << "acceptor is closed, stopping accept loop";
             clean_up();
             return;
         }
         if (ec == boost::asio::error::operation_aborted) {
-            NOTICE_LOG << "got cancel signal, stop calling myself";
+            NOTICE_LOG << "accept cancelled, stopping accept loop";
             clean_up();
             return;
         }
@@ -98,12 +98,12 @@ void Service::do_accept() {
                 new_connection_->start();
 
             } else {
-                NOTICE_LOG << "get remote point error :" << error.message();
+                NOTICE_LOG << "get remote endpoint error: " << error.message();
                 clean_up();
             }
         } else {
             // dump_current_open_fd();
-            NOTICE_LOG << "accept incoming connection fail:" << ec.message() << std::endl;
+            NOTICE_LOG << "accept failed: " << ec.message();
             clean_up();
         }
 
@@ -112,7 +112,7 @@ void Service::do_accept() {
 }
 
 void Service::run() {
-    NOTICE_LOG << "SslServer start..." << std::endl;
+    NOTICE_LOG << "Server start..." << std::endl;
     context_pool.run();
 }
 
@@ -126,6 +126,6 @@ void Service::add_signals() {
         // dump_current_open_fd();
         context_pool.stop();
 
-        NOTICE_LOG << "Recieve signal:" << sig << " SslServer stopped..." << std::endl;
+        NOTICE_LOG << "received signal:" << sig << ", server stopped..." << std::endl;
     });
 }

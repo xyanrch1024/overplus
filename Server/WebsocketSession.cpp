@@ -65,7 +65,7 @@ void WebsocketSession::upstream_tcp_write(int direction, size_t len)
             async_bidirectional_read(direction);
         else {
             if (ec != boost::asio::error::operation_aborted) {
-                NOTICE_LOG << "Client<--Server(TCP):" <<ec.message();
+                NOTICE_LOG << "write to client (TCP): " << ec.message();
             }
             destroy();
             return;
@@ -82,7 +82,7 @@ void WebsocketSession::upstream_udp_write(int direction, const std::string& pack
                 udp_async_bidirectional_read(direction);
             else {
                 if (ec != boost::asio::error::operation_aborted) {
-                    NOTICE_LOG << "Client<--Server(UDP over tls)" << ec.message();
+                    NOTICE_LOG << "write to client (UDP): " << ec.message();
                 }
                 destroy();
                 return;

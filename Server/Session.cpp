@@ -26,7 +26,7 @@ void Session<T>::handle_custom_protocol()
     upstream_socket.async_read_some(boost::asio::buffer(in_buf),
         [this, self](boost::system::error_code ec, std::size_t length) {
             if (ec) {
-                NOTICE_LOG << " Read trojan message failed:" << ec.message();
+                NOTICE_LOG << "read protocol message failed: " << ec.message();
                 destroy();
                 return;
             }
@@ -44,13 +44,13 @@ void Session<T>::handle_custom_protocol()
             if (valid) {
                 //
                 if (!ConfigManage::instance().server_cfg.allowed_passwords.count(password)) {
-                    ERROR_LOG << "unsupported password from client....,end session";
+                    ERROR_LOG << "unsupported password, closing session";
                     destroy();
                     return;
                 }
 
             } else {
-                ERROR_LOG << "parse trojan request fail";
+                ERROR_LOG << "parse protocol request failed";
                 destroy();
                 return;
             }
@@ -88,7 +88,7 @@ void Session<T>::handle_trojan_udp_proxy()
     bool is_packet_valid = udp_packet.parse(remaining, packet_len);
     if (!is_packet_valid) {
         if (upstream_udp_buff.size() - udp_buff_offset_ > MAX_BUFF_SIZE) {
-            ERROR_LOG << "parse packet get wrong UDP packet too long";
+            ERROR_LOG << "UDP packet too long, closing session";
             destroy();
             return;
         }
@@ -117,7 +117,7 @@ void Session<T>::handle_trojan_udp_proxy()
                     udp_async_bidirectional_read(3);
                 else {
                     if (ec != boost::asio::error::operation_aborted) {
-                        ERROR_LOG << "Server-->RemoteWeb(udp):" << ec.message();
+                        ERROR_LOG << "write to downstream (UDP): " << ec.message();
                     }
                     destroy();
                     return;
@@ -127,7 +127,7 @@ void Session<T>::handle_trojan_udp_proxy()
     }
     udp_resolver.async_resolve(udp_packet.address.address, std::to_string(udp_packet.address.port), [this, self, udp_packet, dns_key](const boost::system::error_code error, const udp::resolver::results_type& results) {
         if (error || results.empty()) {
-            ERROR_LOG << "cannot resolve remote server hostname " << udp_packet.address.address << ": " << error.message();
+            ERROR_LOG << "cannot resolve " << udp_packet.address.address << ": " << error.message();
             destroy();
             return;
         }
@@ -155,7 +155,7 @@ void Session<T>::handle_trojan_udp_proxy()
                     udp_async_bidirectional_read(3);
                 else {
                     if (ec != boost::asio::error::operation_aborted) {
-                        ERROR_LOG << "Server-->RemoteWeb(udp):" << ec.message();
+                        ERROR_LOG << "write to downstream (UDP): " << ec.message();
                     }
                     destroy();
                     return;
@@ -173,7 +173,7 @@ void Session<T>::udp_async_bidirectional_read(int direction)
         upstream_socket.async_read_some(boost::asio::buffer(in_buf),
             [this, self](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
-                    DEBUG_LOG << "--> " << std::to_string(length) << " bytes";
+                    DEBUG_LOG << "upstream -->: " << std::to_string(length) << " bytes";
                     UDPPacket udp_packet;
                     size_t packet_len;
                     upstream_udp_buff.append(in_buf.data(), length);
@@ -194,7 +194,7 @@ void Session<T>::udp_async_bidirectional_read(int direction)
                         }
                         udp_resolver.async_resolve(udp_packet.address.address, std::to_string(udp_packet.address.port), [this, self, udp_packet, dns_key](const boost::system::error_code error, const udp::resolver::results_type& results) {
                             if (error || results.empty()) {
-                                ERROR_LOG << "cannot resolve remote server hostname " << udp_packet.address.address << ": " << error.message();
+                                ERROR_LOG << "cannot resolve " << udp_packet.address.address << ": " << error.message();
                                 destroy();
                                 return;
                             }
@@ -211,7 +211,7 @@ void Session<T>::udp_async_bidirectional_read(int direction)
                         });
                     } else {
                         if (upstream_udp_buff.size() - udp_buff_offset_ > MAX_BUFF_SIZE) {
-                            ERROR_LOG << "parse packet get wrong UDP packet too long";
+                            ERROR_LOG << "UDP packet too long, closing session";
                             destroy();
                             return;
                         }
@@ -221,7 +221,7 @@ void Session<T>::udp_async_bidirectional_read(int direction)
                 } else // if (ec != boost::asio::error::eof)
                 {
                     if (ec != boost::asio::error::eof && ec != boost::asio::error::operation_aborted) {
-                        ERROR_LOG << "client-->Server(UDP over tls) " << ec.message();
+                        ERROR_LOG << "read from client (UDP): " << ec.message();
                     }
 
                     destroy();
@@ -235,14 +235,14 @@ void Session<T>::udp_async_bidirectional_read(int direction)
             [this, self, udp_sender_endpoint](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
 
-                    DEBUG_LOG << "<-- " << std::to_string(length) << " bytes";
+                    DEBUG_LOG << "<-- downstream: " << std::to_string(length) << " bytes";
                     auto packet = UDPPacket::generate(udp_sender_endpoint, std::string(out_buf.data(), length));
 
                     udp_async_bidirectional_write(2, packet, boost::asio::ip::udp::endpoint());
                 } else // if (ec != boost::asio::error::eof)
                 {
                     if (ec != boost::asio::error::eof && ec != boost::asio::error::operation_aborted) {
-                        ERROR_LOG << "Server<--RemoteWeb(udp): " << ec.message();
+                        ERROR_LOG << "read from downstream (UDP): " << ec.message();
                     }
 
 
@@ -265,7 +265,7 @@ void Session<T>::udp_async_bidirectional_write(int direction, const std::string&
                     udp_async_bidirectional_read(direction);
                 else {
                     if (ec != boost::asio::error::operation_aborted) {
-                        ERROR_LOG << "Server-->RemoteWeb(udp):" << ec.message();
+                        ERROR_LOG << "write to downstream (UDP): " << ec.message();
                     }
 
                     destroy();
@@ -314,7 +314,7 @@ void Session<T>::do_connect(tcp::endpoint endpoint)
                             if (!ec)
                                 async_bidirectional_read(3);
                             else {
-                                ERROR_LOG << "Client<--Server:" << ec.message();
+                                ERROR_LOG << "write payload to downstream failed " << ec.message();
                                 destroy();
                                 return;
                             }
@@ -339,13 +339,13 @@ void Session<T>::async_bidirectional_read(int direction)
         upstream_socket.async_read_some(boost::asio::buffer(in_buf),
             [this, self](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
-                    DEBUG_LOG << "--> " << std::to_string(length) << " bytes";
+                    DEBUG_LOG << "upstream -->: " << std::to_string(length) << " bytes";
 
                     async_bidirectional_write(1, length);
                 } else // if (ec != boost::asio::error::eof)
                 {
                     if (ec != boost::asio::error::eof && ec != boost::asio::error::operation_aborted) {
-                        ERROR_LOG << "Client-->Server: " << ec.message();
+                        ERROR_LOG << "read from client: " << ec.message();
                     }
                     destroy();
                     return;
@@ -357,13 +357,13 @@ void Session<T>::async_bidirectional_read(int direction)
             [this, self](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
 
-                    DEBUG_LOG << "<-- " << std::to_string(length) << " bytes";
+                    DEBUG_LOG << "<-- downstream: " << std::to_string(length) << " bytes";
 
                     async_bidirectional_write(2, length);
                 } else // if (ec != boost::asio::error::eof)
                 {
                     if (ec != boost::asio::error::eof && ec != boost::asio::error::operation_aborted) {
-                        ERROR_LOG << "Server<--RemoteWeb: " << ec.message();
+                        ERROR_LOG << "read from downstream: " << ec.message();
                     }
                     destroy();
                     return;
@@ -383,7 +383,7 @@ void Session<T>::async_bidirectional_write(int direction, size_t len)
                     async_bidirectional_read(direction);
                 else {
                     if (ec != boost::asio::error::operation_aborted) {
-                        ERROR_LOG << "Server-->Webserver:" << ec.message();
+                        ERROR_LOG << "write to downstream: " << ec.message();
                     }
                     destroy();
                     return;
@@ -409,7 +409,7 @@ void Session<T>::upstream_udp_write(int direction, const std::string& packet)
 template<class T>
 void Session<T>::destroy()
 {
-    DEBUG_LOG<<"Session destroyed called";
+    DEBUG_LOG << "session destroyed";
     boost::system::error_code ec;
     if (downstream_udp_socket.is_open()) {
         downstream_udp_socket.cancel(ec);
