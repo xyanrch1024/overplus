@@ -132,10 +132,9 @@ std::string LogFile::getLogFileName(const std::string& basename, time_t* now)
     struct tm tm;
     *now = time(NULL);
 #ifdef _WIN32
-    gmtime_s(&tm, now);
+    localtime_s(&tm, now);
 #else
-    gmtime_r(now, &tm); // FIXME: localtime_r ?
-
+    localtime_r(now, &tm);
 #endif
     strftime(timebuf, sizeof timebuf, ".%Y%m%d", &tm);
     filename += timebuf;
