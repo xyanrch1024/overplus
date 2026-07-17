@@ -3,7 +3,7 @@
 #SERVER_NAME=''
 #SERVER_CERT="/etc/overplus/$SERVER_NAME.crt"
 #SERVER_KEY="/etc/overplus/$SERVER_NAME.crt"
-VERSION="v1.0.4"
+VERSION="v1.0.5"
 blue(){
     echo -e "\033[34m\033[01m$1\033[0m"
 }
@@ -88,7 +88,7 @@ function install_overplus(){
         exit 1
     fi
     
-    SOFTWARE_PACKAGE=https://github.com/xyanrch/overplus/releases/download/${VERSION}/LinuxRelease.zip
+    SOFTWARE_PACKAGE=https://github.com/xyanrch1024/overplus/releases/download/${VERSION}/overplus-linux-x86_64.zip
     #PORT_CHOICE=${PORT_CHOICE:-1}
     #PORT="443"
     
@@ -119,14 +119,12 @@ function install_overplus(){
     generate_certifiate
     cd
     blue "download overplus package ..."
-    wget $SOFTWARE_PACKAGE
-    unzip  LinuxRelease.zip >/dev/null 2>&1
-    cd LinuxRelease
-    tar -xvf overplus-linux-amd64.tar.xz >/dev/null 2>&1
+    wget -q $SOFTWARE_PACKAGE -O /tmp/overplus.zip
+    unzip -o /tmp/overplus.zip -d /tmp/overplus_extract >/dev/null 2>&1
     
-    cp overplus/overplus /usr/bin/overplus
-    cp overplus/ConfigTemplate/server.json /etc/overplus/server.json
-    #cp /home/xx/overplus/ConfigTemplate/server.json /etc/overplus/server.json
+    cp /tmp/overplus_extract/overplus /usr/bin/overplus
+    chmod +x /usr/bin/overplus
+    cp /tmp/overplus_extract/server.json /etc/overplus/server.json
     
     NAME=$(cat /etc/overplus/easy-rsa/SERVER_NAME_GENERATED)
     SERVER_CERT="/etc/overplus/${NAME}.crt"
@@ -138,15 +136,10 @@ function install_overplus(){
     sed -i "s~VAR_SERVER_KEY~$SERVER_KEY~" /etc/overplus/server.json
     
     # mkdir -p /var/overplus
-    cp overplus/ConfigTemplate/overplus.service /etc/systemd/system/overplus.service
+    cp /tmp/overplus_extract/overplus.service /etc/systemd/system/overplus.service
     
     cd
-    if [ -f LinuxRelease.zip ]; then
-        rm -rf LinuxRelease.zip
-    fi
-    if [ -d './LinuxRelease' ]; then
-        rm -rf LinuxRelease
-    fi
+    rm -rf /tmp/overplus.zip /tmp/overplus_extract
     
     chmod 664 /etc/systemd/system/overplus.service
     systemctl daemon-reload
