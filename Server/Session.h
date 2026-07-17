@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <ctime>
 #include <memory>
+#include <unordered_map>
 
 namespace beast = boost::beast;         // from <boost/beast.hpp>
 namespace http = beast::http;           // from <boost/beast/http.hpp>
@@ -68,7 +69,7 @@ public:
      virtual void destroy();
 
 protected:
-    static constexpr size_t MAX_BUFF_SIZE = 8192;
+    static constexpr size_t MAX_BUFF_SIZE = 64 * 1024;
     boost::asio::io_context& io_context_;
     T upstream_socket;
     tcp::socket downstream_socket;
@@ -83,6 +84,14 @@ protected:
     VRequest v_req {};
     std::string password;
     std::string upstream_udp_buff;
+    size_t udp_buff_offset_ = 0;
+
+    struct DnsCacheEntry {
+        udp::endpoint endpoint;
+        time_t expire_time;
+    };
+    std::unordered_map<std::string, DnsCacheEntry> dns_cache_;
+    static constexpr time_t DNS_CACHE_TTL = 300;
     //
     std::vector<char> in_buf;
     std::vector<char> out_buf;

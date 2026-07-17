@@ -3,7 +3,7 @@ using namespace std;
 using namespace boost::asio::ip;
 
 bool UDPPacket::parse(const string &data, size_t &udp_packet_len) {
-    if (data.length() <= 0) {
+    if (data.empty()) {
         return false;
     }
     size_t address_len;

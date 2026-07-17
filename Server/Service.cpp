@@ -39,13 +39,18 @@ void Service::do_websocket_accept()
     websocket_connection_.reset(new WebsocketSession(context_pool.get_io_context(), ssl_context_));
     acceptor_.async_accept(websocket_connection_->socket(), [this](const boost::system::error_code &ec) {
         if(!ec){
-            auto ep = websocket_connection_->socket().remote_endpoint();
-            NOTICE_LOG << "accept incoming connection " << ep.address().to_string()<<":"<<ep.port();
-            websocket_connection_->start();
+            boost::system::error_code error;
+            auto ep = websocket_connection_->socket().remote_endpoint(error);
+            if (!error) {
+                NOTICE_LOG << "accept incoming connection " << ep.address().to_string()<<":"<<ep.port();
+                websocket_connection_->start();
+            } else {
+                NOTICE_LOG << "get remote endpoint error: " << error.message();
+            }
         }
         else
         {
-            NOTICE_LOG << "accept incoming connection fail:" << ec.message() << std::endl;
+            NOTICE_LOG << "accept incoming connection fail:" << ec.message();
 
         }
         do_websocket_accept();
@@ -60,10 +65,9 @@ void Service::load_server_certificate(boost::asio::ssl::context &ctx) {
     ctx.set_options(
             boost::asio::ssl::context::default_workarounds
             | boost::asio::ssl::context::no_sslv2);
-    // | boost::asio::ssl::context::single_dh_use);
 
-    ssl_context_.use_certificate_chain_file(config_manage.server_cfg.certificate_chain);
-    ssl_context_.use_private_key_file(config_manage.server_cfg.server_private_key, boost::asio::ssl::context::pem);
+    ctx.use_certificate_chain_file(config_manage.server_cfg.certificate_chain);
+    ctx.use_private_key_file(config_manage.server_cfg.server_private_key, boost::asio::ssl::context::pem);
 }
 
 

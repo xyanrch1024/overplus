@@ -37,7 +37,7 @@ public:
     void write_http_connect_response();
 
 private:
-    static constexpr size_t MAX_BUFF_SIZE = 8192;
+    static constexpr size_t MAX_BUFF_SIZE = 64 * 1024;
     boost::asio::io_context& context_;
     tcp::socket in_socket;
 

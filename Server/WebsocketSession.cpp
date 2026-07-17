@@ -21,7 +21,8 @@ void WebsocketSession::start()
 void WebsocketSession::on_handshake(beast::error_code ec)
 {
     if (ec) {
-        ERROR_LOG << "SSL handshak failed:" << ec.message();
+        ERROR_LOG << "SSL handshake failed: " << ec.message();
+        destroy();
         return;
     }
     // Turn off the timeout on the tcp_stream, because
@@ -50,7 +51,8 @@ void WebsocketSession::on_handshake(beast::error_code ec)
 void WebsocketSession::on_accept(beast::error_code ec)
 {
     if (ec) {
-        ERROR_LOG << "websocket accept failed:" << ec.message();
+        ERROR_LOG << "websocket accept failed: " << ec.message();
+        destroy();
         return;
     }
     handle_custom_protocol();
@@ -93,5 +95,12 @@ void WebsocketSession::destroy()
         return;
     }
     state_ = DESTROY;
+    boost::system::error_code ec;
+    auto& lowest = beast::get_lowest_layer(upstream_socket);
+    if (lowest.socket().is_open()) {
+        lowest.socket().cancel(ec);
+        lowest.socket().shutdown(tcp::socket::shutdown_both, ec);
+        lowest.socket().close(ec);
+    }
     Session<websocket::stream<beast::ssl_stream<beast::tcp_stream>>>::destroy();
 }

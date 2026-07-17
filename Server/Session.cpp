@@ -70,7 +70,7 @@ void Session<T>::udp_upstream_read()
     upstream_socket.async_read_some(boost::asio::buffer(in_buf),
         [this, self](boost::system::error_code ec, std::size_t length) {
             if (!ec) {
-                upstream_udp_buff += std::string(in_buf.data(), length);
+                upstream_udp_buff.append(in_buf.data(), length);
                 handle_trojan_udp_proxy();
 
             } else {
@@ -84,9 +84,10 @@ void Session<T>::handle_trojan_udp_proxy()
     state_ = FORWARD;
     UDPPacket udp_packet;
     size_t packet_len;
-    bool is_packet_valid = udp_packet.parse(upstream_udp_buff, packet_len);
+    std::string remaining(upstream_udp_buff.data() + udp_buff_offset_, upstream_udp_buff.size() - udp_buff_offset_);
+    bool is_packet_valid = udp_packet.parse(remaining, packet_len);
     if (!is_packet_valid) {
-        if (upstream_udp_buff.length() > MAX_BUFF_SIZE) {
+        if (upstream_udp_buff.size() - udp_buff_offset_ > MAX_BUFF_SIZE) {
             ERROR_LOG << "parse packet get wrong UDP packet too long";
             destroy();
             return;
@@ -94,10 +95,37 @@ void Session<T>::handle_trojan_udp_proxy()
         udp_upstream_read();
         return;
     }
-    upstream_udp_buff = upstream_udp_buff.substr(packet_len);
+    udp_buff_offset_ += packet_len;
+    if (udp_buff_offset_ > MAX_BUFF_SIZE / 2 && udp_buff_offset_ < upstream_udp_buff.size()) {
+        upstream_udp_buff.erase(0, udp_buff_offset_);
+        udp_buff_offset_ = 0;
+    }
     DEBUG_LOG << "udp:" << udp_packet.address.address << ":" << udp_packet.address.port;
     auto self = this->shared_from_this();
-    udp_resolver.async_resolve(udp_packet.address.address, std::to_string(udp_packet.address.port), [this, self, udp_packet](const boost::system::error_code error, const udp::resolver::results_type& results) {
+    std::string dns_key = udp_packet.address.address + ":" + std::to_string(udp_packet.address.port);
+    auto cache_it = dns_cache_.find(dns_key);
+    if (cache_it != dns_cache_.end() && time(nullptr) < cache_it->second.expire_time) {
+        auto ep = cache_it->second.endpoint;
+        if (!downstream_udp_socket.is_open()) {
+            boost::system::error_code ec;
+            downstream_udp_socket.open(ep.protocol(), ec);
+            if (ec) { destroy(); return; }
+        }
+        downstream_udp_socket.async_send_to(boost::asio::buffer(udp_packet.payload), ep,
+            [this, self](boost::system::error_code ec, std::size_t length) {
+                if (!ec)
+                    udp_async_bidirectional_read(3);
+                else {
+                    if (ec != boost::asio::error::operation_aborted) {
+                        ERROR_LOG << "Server-->RemoteWeb(udp):" << ec.message();
+                    }
+                    destroy();
+                    return;
+                }
+            });
+        return;
+    }
+    udp_resolver.async_resolve(udp_packet.address.address, std::to_string(udp_packet.address.port), [this, self, udp_packet, dns_key](const boost::system::error_code error, const udp::resolver::results_type& results) {
         if (error || results.empty()) {
             ERROR_LOG << "cannot resolve remote server hostname " << udp_packet.address.address << ": " << error.message();
             destroy();
@@ -111,6 +139,7 @@ void Session<T>::handle_trojan_udp_proxy()
                 break;
             }
         }
+        dns_cache_[dns_key] = {*iterator, time(nullptr) + DNS_CACHE_TTL};
         if (!downstream_udp_socket.is_open()) {
             auto protocol = iterator->endpoint().protocol();
             boost::system::error_code ec;
@@ -147,12 +176,23 @@ void Session<T>::udp_async_bidirectional_read(int direction)
                     DEBUG_LOG << "--> " << std::to_string(length) << " bytes";
                     UDPPacket udp_packet;
                     size_t packet_len;
-                    upstream_udp_buff += std::string(in_buf.data(), length);
-                    bool is_packet_valid = udp_packet.parse(upstream_udp_buff, packet_len);
+                    upstream_udp_buff.append(in_buf.data(), length);
+                    std::string remaining(upstream_udp_buff.data() + udp_buff_offset_, upstream_udp_buff.size() - udp_buff_offset_);
+                    bool is_packet_valid = udp_packet.parse(remaining, packet_len);
                     if (is_packet_valid) {
-                        upstream_udp_buff = upstream_udp_buff.substr(packet_len);
+                        udp_buff_offset_ += packet_len;
+                        if (udp_buff_offset_ > MAX_BUFF_SIZE / 2 && udp_buff_offset_ < upstream_udp_buff.size()) {
+                            upstream_udp_buff.erase(0, udp_buff_offset_);
+                            udp_buff_offset_ = 0;
+                        }
 
-                        udp_resolver.async_resolve(udp_packet.address.address, std::to_string(udp_packet.address.port), [this, self, udp_packet](const boost::system::error_code error, const udp::resolver::results_type& results) {
+                        std::string dns_key = udp_packet.address.address + ":" + std::to_string(udp_packet.address.port);
+                        auto cache_it = dns_cache_.find(dns_key);
+                        if (cache_it != dns_cache_.end() && time(nullptr) < cache_it->second.expire_time) {
+                            udp_async_bidirectional_write(1, udp_packet.payload, cache_it->second.endpoint);
+                            return;
+                        }
+                        udp_resolver.async_resolve(udp_packet.address.address, std::to_string(udp_packet.address.port), [this, self, udp_packet, dns_key](const boost::system::error_code error, const udp::resolver::results_type& results) {
                             if (error || results.empty()) {
                                 ERROR_LOG << "cannot resolve remote server hostname " << udp_packet.address.address << ": " << error.message();
                                 destroy();
@@ -166,11 +206,11 @@ void Session<T>::udp_async_bidirectional_read(int direction)
                                     break;
                                 }
                             }
-
+                            dns_cache_[dns_key] = {ep, time(nullptr) + DNS_CACHE_TTL};
                             udp_async_bidirectional_write(1, udp_packet.payload, ep);
                         });
                     } else {
-                        if (upstream_udp_buff.length() > MAX_BUFF_SIZE) {
+                        if (upstream_udp_buff.size() - udp_buff_offset_ > MAX_BUFF_SIZE) {
                             ERROR_LOG << "parse packet get wrong UDP packet too long";
                             destroy();
                             return;
