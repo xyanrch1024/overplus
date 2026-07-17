@@ -69,7 +69,7 @@ public:
      virtual void destroy();
 
 protected:
-    static constexpr size_t MAX_BUFF_SIZE = 32 * 1024;
+    static constexpr size_t MAX_BUFF_SIZE = 64 * 1024;
     boost::asio::io_context& io_context_;
     T upstream_socket;
     tcp::socket downstream_socket;
@@ -86,12 +86,19 @@ protected:
     std::string upstream_udp_buff;
     size_t udp_buff_offset_ = 0;
 
-    struct DnsCacheEntry {
+    struct UdpDnsCacheEntry {
         udp::endpoint endpoint;
         time_t expire_time;
     };
-    std::unordered_map<std::string, DnsCacheEntry> dns_cache_;
+    std::unordered_map<std::string, UdpDnsCacheEntry> dns_cache_;
     static constexpr time_t DNS_CACHE_TTL = 300;
+
+    struct TcpDnsCacheEntry {
+        tcp::endpoint endpoint;
+        time_t expire_time;
+    };
+    std::unordered_map<std::string, TcpDnsCacheEntry> tcp_dns_cache_;
+    static constexpr time_t TCP_DNS_CACHE_TTL = 300;
     //
     std::vector<char> in_buf;
     std::vector<char> out_buf;

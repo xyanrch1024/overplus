@@ -284,10 +284,20 @@ void Session<T>::do_resolve()
     auto self(this->shared_from_this());
     remote_host = vprotocol ? v_req.address : trojanReq.address.address;
     remote_port = std::to_string(vprotocol ? v_req.port : trojanReq.address.port);
+
+    std::string dns_key = remote_host + ":" + remote_port;
+    auto cache_it = tcp_dns_cache_.find(dns_key);
+    if (cache_it != tcp_dns_cache_.end() && time(nullptr) < cache_it->second.expire_time) {
+        do_connect(cache_it->second.endpoint);
+        return;
+    }
+
     resolver_.async_resolve(remote_host, remote_port,
-        [this, self](const boost::system::error_code& ec, tcp::resolver::results_type results) {
+        [this, self, dns_key](const boost::system::error_code& ec, tcp::resolver::results_type results) {
             if (!ec && !results.empty()) {
-                do_connect(*results.begin());
+                auto ep = *results.begin();
+                tcp_dns_cache_[dns_key] = {ep, time(nullptr) + TCP_DNS_CACHE_TTL};
+                do_connect(ep);
             } else {
                 ERROR_LOG << "failed to resolve " << remote_host << ":" << remote_port << " " << ec.message();
                 destroy();
@@ -364,7 +374,7 @@ void Session<T>::async_bidirectional_read(int direction)
                 } else // if (ec != boost::asio::error::eof)
                 {
                     if (ec != boost::asio::error::eof && ec != boost::asio::error::operation_aborted) {
-                        ERROR_LOG << "read from downstream: " << ec.message();
+                        DEBUG_LOG << "read from downstream: " << ec.message();
                     }
                     destroy();
                     return;
@@ -384,7 +394,7 @@ void Session<T>::async_bidirectional_write(int direction, size_t len)
                     async_bidirectional_read(direction);
                 else {
                     if (ec != boost::asio::error::operation_aborted) {
-                        ERROR_LOG << "write to downstream: " << ec.message();
+                        DEBUG_LOG << "write to downstream: " << ec.message();
                     }
                     destroy();
                     return;

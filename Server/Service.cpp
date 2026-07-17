@@ -8,6 +8,7 @@
 //#include <filesystem>
 #include <memory>
 #include <string>
+#include <openssl/ssl.h>
 
 Service::Service()
         : context_pool(5), io_context(context_pool.get_io_context()), signals(io_context), acceptor_(io_context),
@@ -64,8 +65,9 @@ void Service::load_server_certificate(boost::asio::ssl::context &ctx) {
 
     ctx.set_options(
             boost::asio::ssl::context::default_workarounds
-            | boost::asio::ssl::context::no_sslv2);
-
+            | boost::asio::ssl::context::no_sslv2
+            | boost::asio::ssl::context::single_dh_use);
+    SSL_CTX_set_session_cache_mode(ctx.native_handle(), SSL_SESS_CACHE_SERVER);
     ctx.use_certificate_chain_file(config_manage.server_cfg.certificate_chain);
     ctx.use_private_key_file(config_manage.server_cfg.server_private_key, boost::asio::ssl::context::pem);
 }
