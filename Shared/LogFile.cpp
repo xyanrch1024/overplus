@@ -95,7 +95,10 @@ void LogFile::append_unlocked(std::string&& buf)
         if (count_ >= checkEveryN_) {
             count_ = 0;
             time_t now = ::time(NULL);
-            if (now - lastFlush_ > flushInterval_) {
+            time_t today = now / kRollPerSeconds_ * kRollPerSeconds_;
+            if (today != startOfPeriod_) {
+                rollFile();
+            } else if (now - lastFlush_ > flushInterval_) {
                 lastFlush_ = now;
                 file_->flush();
             }
