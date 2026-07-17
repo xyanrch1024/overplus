@@ -26,7 +26,7 @@ add_subdirectory(Protocol)
 add_subdirectory(Client)
 
 add_executable(overplus Server/main.cpp)
-target_link_libraries(overplus Threads::Threads  shared server proto OpenSSL::SSL z dl pthread)
+target_link_libraries(overplus Threads::Threads shared server proto OpenSSL::SSL)
 target_link_libraries(overplus ${Boost_LIBRARIES})
 
 
