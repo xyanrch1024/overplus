@@ -70,8 +70,10 @@ void Session::write_sock5_hanshake_reply(AuthReq& req)
     boost::asio::async_write(in_socket, boost::asio::buffer(message_buf), // Always 2-byte according to RFC1928
         [this, self](boost::system::error_code ec, std::size_t length) {
             if (!ec) {
-                if (in_buf[1] == (char)0xFF)
-                    return; // No appropriate auth method found. Close session.
+                if (in_buf[1] == (char)0xFF) {
+                    destroy();
+                    return;
+                }
                 read_socks5_request();
             } else {
                 ERROR_LOG << "SOCKS5 handshake response write :" << ec.message();
@@ -172,8 +174,10 @@ void Session::do_sent_v_req()
                 } else {
                     write_socks5_response();
                 }
-            } else
+            } else {
                 ERROR_LOG << "VProtocol request write failed " << ec.message();
+                destroy();
+            }
         });
 }
 void Session::write_socks5_response()
@@ -197,8 +201,10 @@ void Session::write_socks5_response()
             if (!ec) {
                 state_ = FORWARD;
                 read_packet(3); // Read both sockets
-            } else
+            } else {
                 ERROR_LOG << "SOCKS5 response write:" << ec.message();
+                destroy();
+            }
         });
 }
 void Session::http_connect_handshake(const std::string& initial)
@@ -325,11 +331,8 @@ void Session::destroy()
     }
 
     if (out_socket.lowest_layer().is_open()) {
-        auto self = shared_from_this();
-
+        out_socket.shutdown(ec);
         out_socket.lowest_layer().shutdown(tcp::socket::shutdown_both, ec);
-        out_socket.lowest_layer().close();
-        //  ssl_shutdown_timer.expires_after(chrono::seconds(SSL_SHUTDOWN_TIMEOUT));
-        // ssl_shutdown_timer.async_wait(ssl_shutdown_cb);
+        out_socket.lowest_layer().close(ec);
     }
 }
