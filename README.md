@@ -2,6 +2,8 @@
 
 A lightweight, high-performance C++17 proxy server supporting Trojan, SOCKS5, HTTPS, and a custom V-Protocol.
 
+> **Note:** The original repository `xyanrch/overplus` is no longer accessible due to a 2FA account issue. This repository (`xyanrch1024/overplus`) is the current and actively maintained version.
+
 ## Performance
 
 Measured on a 2-core Xeon Skylake / 2GB RAM / Ubuntu 24.04:
