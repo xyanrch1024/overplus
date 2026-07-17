@@ -102,4 +102,6 @@ void ServerConfig::populate(boost::property_tree::ptree& tree)
     certificate_chain = tree.get("ssl.cert", std::string());
     server_private_key = tree.get("ssl.key", std::string());
     websocketEnabled = tree.get("websocketEnabled",false);
+    dns_cache_ttl = tree.get("dns_cache_ttl", static_cast<int>(600));
+    dns_cleanup_interval = tree.get("dns_cleanup_interval", static_cast<int>(600));
 }

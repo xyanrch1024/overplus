@@ -11,5 +11,7 @@
         "cert": "VAR_SERVER_CERT",
         "key": "VAR_SERVER_KEY"
     },
-    "websocketEnabled": false
+    "websocketEnabled": false,
+    "dns_cache_ttl": 600,
+    "dns_cleanup_interval": 600
 }

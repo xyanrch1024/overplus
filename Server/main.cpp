@@ -1,5 +1,6 @@
 #include "Server/Service.h"
 #include "Shared/ConfigManage.h"
+#include "Shared/DnsCache.h"
 // #include<string.h>
 #include "Shared/Log.h"
 #include "Shared/LogFile.h"
@@ -42,6 +43,7 @@ int main(int argc, char* argv[])
         }
         auto& config = ConfigManage::instance();
         config.load_config(config_file, ConfigManage::Server);
+        DnsCacheManager::instance().set_default_ttl(config.server_cfg.dns_cache_ttl);
         std::unique_ptr<LogFile> logfile_;
 
         logger::set_log_level(config.server_cfg.log_level);

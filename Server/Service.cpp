@@ -137,7 +137,8 @@ void Service::add_signals() {
 }
 
 void Service::start_dns_cleanup_timer() {
-    dns_cleanup_timer_.expires_after(std::chrono::seconds(60));
+    auto interval = ConfigManage::instance().server_cfg.dns_cleanup_interval;
+    dns_cleanup_timer_.expires_after(std::chrono::seconds(interval));
     dns_cleanup_timer_.async_wait([this](const boost::system::error_code& ec) {
         if (ec) return;
         DnsCacheManager::instance().cleanup_expired();
