@@ -69,7 +69,7 @@ public:
      virtual void destroy();
 
 protected:
-    static constexpr size_t MAX_BUFF_SIZE = 64 * 1024;
+    static constexpr size_t MAX_BUFF_SIZE = 32 * 1024;
     boost::asio::io_context& io_context_;
     T upstream_socket;
     tcp::socket downstream_socket;

@@ -36,7 +36,7 @@ else ()
             )
     add_executable(overplus_client CliMain.cpp ${SRCS})
     target_link_libraries(overplus_client Threads::Threads shared proto OpenSSL::SSL
-            ${Boost_LIBRARIES})
+            ${Boost_LIBRARIES} z dl pthread)
 endif ()
 
 
