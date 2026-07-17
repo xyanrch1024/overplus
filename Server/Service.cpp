@@ -95,6 +95,7 @@ void Service::do_accept() {
             if (!error) {
                 DEBUG_LOG << "accept incoming connection "<< ep.address().to_string()<<":"<<ep.port();
                 new_connection_->socket().set_option(boost::asio::socket_base::keep_alive(true));
+                new_connection_->socket().set_option(boost::asio::ip::tcp::no_delay(true));
                 new_connection_->start();
 
             } else {

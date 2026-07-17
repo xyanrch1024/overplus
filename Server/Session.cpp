@@ -304,6 +304,7 @@ void Session<T>::do_connect(tcp::endpoint endpoint)
             if (!ec) {
                 boost::asio::socket_base::keep_alive option(true);
                 downstream_socket.set_option(option);
+                downstream_socket.set_option(boost::asio::ip::tcp::no_delay(true));
                 DEBUG_LOG << "connected to " << remote_host << ":" << remote_port;
 
                 if (vprotocol && !v_req.packed_buff.empty() || !vprotocol && !trojanReq.payload.empty()) {
