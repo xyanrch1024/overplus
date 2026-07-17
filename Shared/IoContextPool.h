@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <boost/asio.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
@@ -35,5 +36,5 @@ private:
     std::list<io_context_work> work_;
 
     /// The next io_context to use for a connection.
-    std::size_t next_io_context_;
+    std::atomic<std::size_t> next_io_context_;
 };

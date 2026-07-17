@@ -45,9 +45,6 @@ void IoContextPool::stop()
 boost::asio::io_context& IoContextPool::get_io_context()
 {
     // Use a round-robin scheme to choose the next io_context to use.
-    boost::asio::io_context& io_context = *io_contexts_[next_io_context_];
-    ++next_io_context_;
-    if (next_io_context_ == io_contexts_.size())
-        next_io_context_ = 0;
-    return io_context;
+    auto idx = next_io_context_.fetch_add(1, std::memory_order_relaxed);
+    return *io_contexts_[idx % io_contexts_.size()];
 }
