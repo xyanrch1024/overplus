@@ -18,8 +18,10 @@ https://t.me/+JfKOqh2wH25kMWFl
 Run the script and follow the assistant:
 
 ``` commandline 
-curl -O https://raw.githubusercontent.com/xyanrch/overplus/master/install.sh && chmod +x install.sh && sudo ./install.sh
+curl -O https://raw.githubusercontent.com/xyanrch1024/overplus/master/install.sh && chmod +x install.sh && sudo ./install.sh
  ```
+
+The server binary is statically linked (Boost & OpenSSL), requiring zero external dependencies on any x86_64 Linux system.
  
  **It is strongly recommended to enable BBR to accelerate the network speed.**
  
@@ -29,12 +31,12 @@ A windows client that support v protocol can find in release page. Overplus full
 
 
 ## Build
-The project depend on boost and openssl libraries, please make sure install boost and openssl before build the project.
+The project depends on Boost and OpenSSL. Static linking is configured by default, producing a self-contained binary with zero runtime dependencies (only glibc required).
 
 ### How to build
 ``` commandline
 mkdir build && cd build
-cmake ..
+cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 
 ```
@@ -98,5 +100,5 @@ Trojan protocol is a socks5 like protocol.Trojan request is formed as follows:
 
 ## Stargazers over time
 
-[![Stargazers over time](https://starchart.cc/xyanrch/overplus.svg)](https://starchart.cc/xyanrch/overplus)
+[![Stargazers over time](https://starchart.cc/xyanrch1024/overplus.svg)](https://starchart.cc/xyanrch1024/overplus)
 
