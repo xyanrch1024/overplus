@@ -3,6 +3,7 @@
 #include "Protocol/trojan/TrojanReq.h"
 #include "Protocol/trojan/UDPPacket.h"
 #include "Shared/Log.h"
+#include "Shared/DnsCache.h"
 #include <Protocol/VProtocal/VRequest.h>
 #include <atomic>
 #include <boost/asio.hpp>
@@ -85,20 +86,6 @@ protected:
     std::string password;
     std::string upstream_udp_buff;
     size_t udp_buff_offset_ = 0;
-
-    struct UdpDnsCacheEntry {
-        udp::endpoint endpoint;
-        time_t expire_time;
-    };
-    std::unordered_map<std::string, UdpDnsCacheEntry> dns_cache_;
-    static constexpr time_t DNS_CACHE_TTL = 300;
-
-    struct TcpDnsCacheEntry {
-        tcp::endpoint endpoint;
-        time_t expire_time;
-    };
-    std::unordered_map<std::string, TcpDnsCacheEntry> tcp_dns_cache_;
-    static constexpr time_t TCP_DNS_CACHE_TTL = 300;
     //
     std::vector<char> in_buf;
     std::vector<char> out_buf;

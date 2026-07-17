@@ -3,6 +3,7 @@
 #include "Shared/Log.h"
 #include <boost/asio/io_context.hpp>
 #include <boost/system/error_code.hpp>
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
 //#include <filesystem>
@@ -12,10 +13,11 @@
 
 Service::Service()
         : context_pool(5), io_context(context_pool.get_io_context()), signals(io_context), acceptor_(io_context),
-          ssl_context_(boost::asio::ssl::context::sslv23) {
+          ssl_context_(boost::asio::ssl::context::sslv23), dns_cleanup_timer_(io_context) {
 
     auto &config_manage = ConfigManage::instance();
     add_signals();
+    start_dns_cleanup_timer();
     ip::tcp::resolver resover(io_context);
     ip::tcp::endpoint endpoint = *resover.resolve(config_manage.server_cfg.local_addr,
                                                   config_manage.server_cfg.local_port).begin();
@@ -127,8 +129,18 @@ void Service::add_signals() {
 #endif
     signals.async_wait([this](const boost::system::error_code &ec, int sig) {
         // dump_current_open_fd();
+        dns_cleanup_timer_.cancel();
         context_pool.stop();
 
         NOTICE_LOG << "received signal:" << sig << ", server stopped..." << std::endl;
+    });
+}
+
+void Service::start_dns_cleanup_timer() {
+    dns_cleanup_timer_.expires_after(std::chrono::seconds(60));
+    dns_cleanup_timer_.async_wait([this](const boost::system::error_code& ec) {
+        if (ec) return;
+        DnsCacheManager::instance().cleanup_expired();
+        start_dns_cleanup_timer();
     });
 }

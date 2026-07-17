@@ -103,9 +103,9 @@ void Session<T>::handle_trojan_udp_proxy()
     DEBUG_LOG << "udp:" << udp_packet.address.address << ":" << udp_packet.address.port;
     auto self = this->shared_from_this();
     std::string dns_key = udp_packet.address.address + ":" + std::to_string(udp_packet.address.port);
-    auto cache_it = dns_cache_.find(dns_key);
-    if (cache_it != dns_cache_.end() && time(nullptr) < cache_it->second.expire_time) {
-        auto ep = cache_it->second.endpoint;
+    udp::endpoint cached_ep;
+    if (DnsCacheManager::instance().get_udp(dns_key, cached_ep)) {
+        auto ep = cached_ep;
         if (!downstream_udp_socket.is_open()) {
             boost::system::error_code ec;
             downstream_udp_socket.open(ep.protocol(), ec);
@@ -139,7 +139,7 @@ void Session<T>::handle_trojan_udp_proxy()
                 break;
             }
         }
-        dns_cache_[dns_key] = {*iterator, time(nullptr) + DNS_CACHE_TTL};
+        DnsCacheManager::instance().put_udp(dns_key, *iterator);
         if (!downstream_udp_socket.is_open()) {
             auto protocol = iterator->endpoint().protocol();
             boost::system::error_code ec;
@@ -187,9 +187,9 @@ void Session<T>::udp_async_bidirectional_read(int direction)
                         }
 
                         std::string dns_key = udp_packet.address.address + ":" + std::to_string(udp_packet.address.port);
-                        auto cache_it = dns_cache_.find(dns_key);
-                        if (cache_it != dns_cache_.end() && time(nullptr) < cache_it->second.expire_time) {
-                            udp_async_bidirectional_write(1, udp_packet.payload, cache_it->second.endpoint);
+                        udp::endpoint cached_ep;
+                        if (DnsCacheManager::instance().get_udp(dns_key, cached_ep)) {
+                            udp_async_bidirectional_write(1, udp_packet.payload, cached_ep);
                             return;
                         }
                         udp_resolver.async_resolve(udp_packet.address.address, std::to_string(udp_packet.address.port), [this, self, udp_packet, dns_key](const boost::system::error_code error, const udp::resolver::results_type& results) {
@@ -206,7 +206,7 @@ void Session<T>::udp_async_bidirectional_read(int direction)
                                     break;
                                 }
                             }
-                            dns_cache_[dns_key] = {ep, time(nullptr) + DNS_CACHE_TTL};
+                            DnsCacheManager::instance().put_udp(dns_key, ep);
                             udp_async_bidirectional_write(1, udp_packet.payload, ep);
                         });
                     } else {
@@ -286,9 +286,9 @@ void Session<T>::do_resolve()
     remote_port = std::to_string(vprotocol ? v_req.port : trojanReq.address.port);
 
     std::string dns_key = remote_host + ":" + remote_port;
-    auto cache_it = tcp_dns_cache_.find(dns_key);
-    if (cache_it != tcp_dns_cache_.end() && time(nullptr) < cache_it->second.expire_time) {
-        do_connect(cache_it->second.endpoint);
+    tcp::endpoint cached_ep;
+    if (DnsCacheManager::instance().get_tcp(dns_key, cached_ep)) {
+        do_connect(cached_ep);
         return;
     }
 
@@ -296,7 +296,7 @@ void Session<T>::do_resolve()
         [this, self, dns_key](const boost::system::error_code& ec, tcp::resolver::results_type results) {
             if (!ec && !results.empty()) {
                 auto ep = *results.begin();
-                tcp_dns_cache_[dns_key] = {ep, time(nullptr) + TCP_DNS_CACHE_TTL};
+                DnsCacheManager::instance().put_tcp(dns_key, ep);
                 do_connect(ep);
             } else {
                 ERROR_LOG << "failed to resolve " << remote_host << ":" << remote_port << " " << ec.message();
