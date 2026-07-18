@@ -6,6 +6,7 @@
 #include <QPixmap>
 #include <QStyle>
 #include "Shared/ConfigManage.h"
+#include "Shared/Version.h"
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
@@ -32,7 +33,7 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
 {
 
     ui->setupUi(this);
-    setWindowTitle("overplus");
+    setWindowTitle(QString("Overplus %1").arg(OVERPLUS_VERSION_STR));
     QApplication::setQuitOnLastWindowClosed(false);
 
     trayIcon = new QSystemTrayIcon(this);
@@ -59,7 +60,7 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
          ui->HOST_PORT->setText(QString::fromStdString(config.remote_port));
          ui->HOST_PASSWD->setText(QString::fromStdString(config.text_password));
     }
-
+    statusBar()->showMessage(QString("Overplus %1").arg(OVERPLUS_VERSION_STR));
 
 }
 

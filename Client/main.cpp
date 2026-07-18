@@ -4,6 +4,8 @@
 
 #include "Shared/Log.h"
 #include "Shared/LogFile.h"
+#include "Shared/Version.h"
+#include <iostream>
 #include <string>
 
 #include "mainwindow.h"
@@ -85,6 +87,7 @@ bool enable_system_socks_proxy()
 int main(int argc, char* argv[])
 {
     SetupUTF8Console();
+    std::cout << "Overplus " << OVERPLUS_VERSION_STR << std::endl;
     QFileInfo file("client.json");
     auto& config = ConfigManage::instance().client_cfg;
     if (file.isFile()) {

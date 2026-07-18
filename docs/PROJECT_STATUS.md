@@ -2,7 +2,7 @@
 
 ## 基本信息
 
-- **项目**: Overplus v1.0.6
+- **项目**: Overplus v1.1.0
 - **协议**: SOCKS5 / HTTPS / Trojan / V-Protocol（自定义）
 - **架构**: Client（本地代理） → TLS/WebSocket → Server（远程代理） → 目标网站
 - **技术栈**: C++17, Boost.Asio, OpenSSL, CMake
@@ -62,7 +62,7 @@
 | 改动 | 说明 |
 |------|------|
 | 静态链接 | Boost + OpenSSL 静态编译，零依赖 |
-| install.sh | v1.0.6 自动安装脚本 |
+| install.sh | v1.1.0 自动安装脚本 |
 | GitHub Release | 自动打包 `overplus-linux-x86_64` |
 | systemd service | 开机自启，自动重启 |
 
@@ -87,7 +87,7 @@
 
 ## 当前状态
 
-- 服务端 v1.0.6 运行稳定
+- 服务端 v1.1.0 运行稳定
 - 5.6MB 内存占用，CPU 几乎为零
 - 27 个活跃 TCP 连接
 - 无 ERROR 日志（热路径日志已降级为 DEBUG）
