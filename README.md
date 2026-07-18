@@ -151,6 +151,4 @@ https://t.me/+JfKOqh2wH25kMWFl
 - [ ] Web console for management
 - [ ] Connection pooling
 
-## Stars
 
-[![Stars](https://img.shields.io/github/stars/xyanrch1024/overplus?style=social)](https://github.com/xyanrch1024/overplus)
