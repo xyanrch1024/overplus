@@ -43,6 +43,8 @@ private:
 
     std::string remote_host;
     std::string remote_port;
+    std::string user_name_;
+    std::string password_;
     tcp::resolver resolver_;
     std::vector<char> in_buf;
     std::vector<char> out_buf;

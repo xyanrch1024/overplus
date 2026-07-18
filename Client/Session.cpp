@@ -23,6 +23,8 @@ Session::Session(boost::asio::io_context& context, boost::asio::ssl::context& ss
     auto& config = ConfigManage::instance().client_cfg;
     remote_host = config.remote_addr;
     remote_port = config.remote_port;
+    user_name_ = config.user_name;
+    password_ = config.password;
 }
 
 void Session::start()
@@ -153,13 +155,12 @@ void Session::do_sent_v_req()
 {
     auto self(shared_from_this());
     message_buf.clear();
-    auto& config = ConfigManage::instance().client_cfg;
     VRequest request;
 
     request.header.version = 0x01;
 
-    request.user_name = config.user_name;
-    request.password = config.password;
+    request.user_name = user_name_;
+    request.password = password_;
     request.address = socks5_req.remote_host;
     request.port = socks5_req.remote_port;
     request.stream(message_buf);
