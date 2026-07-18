@@ -151,6 +151,6 @@ https://t.me/+JfKOqh2wH25kMWFl
 - [ ] Web console for management
 - [ ] Connection pooling
 
-## Stargazers
+## Stars
 
-[![Stargazers over time](https://starchart.cc/xyanrch1024/overplus.svg)](https://starchart.cc/xyanrch1024/overplus)
+[![Stars](https://img.shields.io/github/stars/xyanrch1024/overplus?style=social)](https://github.com/xyanrch1024/overplus)
