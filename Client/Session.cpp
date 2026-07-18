@@ -332,7 +332,6 @@ void Session::destroy()
     }
 
     if (out_socket.lowest_layer().is_open()) {
-        out_socket.shutdown(ec);
         out_socket.lowest_layer().shutdown(tcp::socket::shutdown_both, ec);
         out_socket.lowest_layer().close(ec);
     }
