@@ -80,7 +80,8 @@ curl -O https://raw.githubusercontent.com/xyanrch1024/overplus/master/install.sh
     },
     "websocketEnabled": false,
     "dns_cache_ttl": 600,
-    "dns_cleanup_interval": 600
+    "dns_cleanup_interval": 600,
+    "thread_count": 0
 }
 ```
 
@@ -88,6 +89,7 @@ curl -O https://raw.githubusercontent.com/xyanrch1024/overplus/master/install.sh
 |------|------|--------|
 | `dns_cache_ttl` | DNS 缓存有效期（秒） | 600 |
 | `dns_cleanup_interval` | 过期 DNS 条目清理间隔（秒） | 600 |
+| `thread_count` | 工作线程数（0 = 自动检测 CPU 核心数） | 0 |
 
 ### 客户端
 

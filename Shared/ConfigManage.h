@@ -37,6 +37,7 @@ struct ServerConfig {
     //
     time_t dns_cache_ttl = 600;
     time_t dns_cleanup_interval = 600;
+    size_t thread_count = 0;
     void populate(boost::property_tree::ptree&);
 };
 struct ClientConfig {

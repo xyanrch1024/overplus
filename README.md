@@ -80,7 +80,8 @@ A Windows GUI client is available on the [release page](https://github.com/xyanr
     },
     "websocketEnabled": false,
     "dns_cache_ttl": 600,
-    "dns_cleanup_interval": 600
+    "dns_cleanup_interval": 600,
+    "thread_count": 0
 }
 ```
 
@@ -88,6 +89,7 @@ A Windows GUI client is available on the [release page](https://github.com/xyanr
 |-------|-------------|---------|
 | `dns_cache_ttl` | DNS cache lifetime (seconds) | 600 |
 | `dns_cleanup_interval` | How often to purge expired DNS entries (seconds) | 600 |
+| `thread_count` | Worker threads (0 = auto-detect CPU cores) | 0 |
 
 ### Client
 

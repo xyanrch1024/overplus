@@ -13,5 +13,6 @@
     },
     "websocketEnabled": false,
     "dns_cache_ttl": 600,
-    "dns_cleanup_interval": 600
+    "dns_cleanup_interval": 600,
+    "thread_count": 0
 }

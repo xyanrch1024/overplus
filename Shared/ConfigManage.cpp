@@ -104,4 +104,5 @@ void ServerConfig::populate(boost::property_tree::ptree& tree)
     websocketEnabled = tree.get("websocketEnabled",false);
     dns_cache_ttl = tree.get("dns_cache_ttl", static_cast<int>(600));
     dns_cleanup_interval = tree.get("dns_cleanup_interval", static_cast<int>(600));
+    thread_count = static_cast<size_t>(tree.get("thread_count", 0));
 }

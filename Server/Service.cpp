@@ -9,10 +9,18 @@
 //#include <filesystem>
 #include <memory>
 #include <string>
+#include <thread>
 #include <openssl/ssl.h>
 
+static size_t get_thread_count() {
+    auto &cfg = ConfigManage::instance().server_cfg;
+    if (cfg.thread_count > 0) return cfg.thread_count;
+    auto n = std::thread::hardware_concurrency();
+    return n > 0 ? n : 4;
+}
+
 Service::Service()
-        : context_pool(5), io_context(context_pool.get_io_context()), signals(io_context), acceptor_(io_context),
+        : context_pool(get_thread_count()), io_context(context_pool.get_io_context()), signals(io_context), acceptor_(io_context),
           ssl_context_(boost::asio::ssl::context::sslv23), dns_cleanup_timer_(io_context) {
 
     auto &config_manage = ConfigManage::instance();
