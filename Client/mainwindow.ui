@@ -135,41 +135,26 @@
        <item>
         <widget class="QPushButton" name="CONNECT_BUTTON">
          <property name="text"><string>Connect</string></property>
-         <property name="minimumSize">
-          <size><width>90</width><height>0</height></size>
-         </property>
         </widget>
        </item>
        <item>
         <widget class="QPushButton" name="DISCONNECT_BUTTON">
          <property name="text"><string>Disconnect</string></property>
-         <property name="minimumSize">
-          <size><width>90</width><height>0</height></size>
-         </property>
         </widget>
        </item>
        <item>
         <widget class="QPushButton" name="PING_BUTTON">
          <property name="text"><string>Ping</string></property>
-         <property name="minimumSize">
-          <size><width>90</width><height>0</height></size>
-         </property>
         </widget>
        </item>
        <item>
         <widget class="QPushButton" name="SAVE_BUTTON">
          <property name="text"><string>Save</string></property>
-         <property name="minimumSize">
-          <size><width>90</width><height>0</height></size>
-         </property>
         </widget>
        </item>
        <item>
         <widget class="QPushButton" name="LOG_BUTTON">
          <property name="text"><string>Log</string></property>
-         <property name="minimumSize">
-          <size><width>90</width><height>0</height></size>
-         </property>
         </widget>
        </item>
        <item>
