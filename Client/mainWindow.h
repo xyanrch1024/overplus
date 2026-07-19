@@ -6,6 +6,7 @@
 #include <QCloseEvent>
 #include <QMenu>
 #include <QTimer>
+#include <chrono>
 #include "Server.h"
 
 QT_BEGIN_NAMESPACE
@@ -25,7 +26,6 @@ public slots:
     void onConnect();
     void onDisconnect();
     void onCheckBoxClick();
-    void onSave();
     void onPing();
     void onToggleLog();
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
@@ -33,11 +33,15 @@ public slots:
     void onQuit();
     void appendLog(const QString& line);
     void updateStats();
+    void updateDuration();
+    void autoSave();
 private:
     Ui::MainWindow *ui;
     Server& server;
     QSystemTrayIcon* trayIcon;
     QMenu* trayMenu;
     QTimer* statsTimer;
+    QTimer* durationTimer;
+    std::chrono::steady_clock::time_point connectTime_;
 };
 #endif // MAINWINDOW_H

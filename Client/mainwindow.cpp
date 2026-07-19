@@ -36,6 +36,17 @@ static QString formatTotal(uint64_t bytes) {
         return QString("%1 GB").arg(bytes / (1024.0 * 1024 * 1024), 0, 'f', 2);
 }
 
+static QString formatDuration(int64_t seconds) {
+    if (seconds < 60)
+        return QString("%1s").arg(seconds);
+    else if (seconds < 3600)
+        return QString("%1m %2s").arg(seconds / 60).arg(seconds % 60);
+    else if (seconds < 86400)
+        return QString("%1h %2m").arg(seconds / 3600).arg((seconds % 3600) / 60);
+    else
+        return QString("%1d %2h").arg(seconds / 86400).arg((seconds % 86400) / 3600);
+}
+
 static QIcon createTrayIcon(const QColor& bg)
 {
     QPixmap pix(64, 64);
@@ -74,7 +85,6 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     QAction* quitAction = trayMenu->addAction("Quit");
     trayIcon->setContextMenu(trayMenu);
 
-    connect(ui->SAVE_BUTTON, SIGNAL(clicked()), this, SLOT(onSave()));
     connect(ui->CONNECT_BUTTON, SIGNAL(clicked()), this, SLOT(onConnect()));
     connect(ui->DISCONNECT_BUTTON, SIGNAL(clicked()), this, SLOT(onDisconnect()));
     connect(ui->PING_BUTTON, SIGNAL(clicked()), this, SLOT(onPing()));
@@ -103,7 +113,10 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
 
     statsTimer = new QTimer(this);
     connect(statsTimer, &QTimer::timeout, this, &MainWindow::updateStats);
-    statsTimer->start(2000);
+    statsTimer->start(1000);
+
+    durationTimer = new QTimer(this);
+    connect(durationTimer, &QTimer::timeout, this, &MainWindow::updateDuration);
 }
 
 MainWindow::~MainWindow()
@@ -114,6 +127,36 @@ MainWindow::~MainWindow()
 void MainWindow::appendLog(const QString& line)
 {
     ui->LOG_VIEW->appendPlainText(line);
+}
+
+void MainWindow::updateDuration()
+{
+    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::steady_clock::now() - connectTime_).count();
+    ui->DURATION_LABEL->setText(formatDuration(elapsed));
+}
+
+void MainWindow::autoSave()
+{
+    auto& config = ConfigManage::instance().client_cfg;
+    config.remote_addr = ui->HOST_NAME->text().toStdString();
+    config.remote_port = ui->HOST_PORT->text().toStdString();
+    config.setPassword(ui->HOST_PASSWD->text().toStdString());
+
+    boost::property_tree::ptree tree;
+    tree.put("run_type", "client");
+    tree.put("local_addr", config.local_addr);
+    tree.put("local_port", config.local_port);
+    tree.put("remote_addr", config.remote_addr);
+    tree.put("remote_port", config.remote_port);
+    tree.put("user_name", config.user_name);
+    tree.put("password", config.text_password);
+
+    try {
+        boost::property_tree::write_json("client.json", tree);
+    } catch (const std::exception& e) {
+        ERROR_LOG << "auto save config failed: " << e.what();
+    }
 }
 
 void MainWindow::updateStats()
@@ -145,15 +188,19 @@ void MainWindow::onConnect()
     NOTICE_LOG<<"Read config from user input:"<<config.remote_addr<<":"<< config.remote_port;
 
     server.start_accept();
+    connectTime_ = std::chrono::steady_clock::now();
+    durationTimer->start(1000);
 }
 
 void MainWindow::onDisconnect()
 {
     server.stop_accept();
+    durationTimer->stop();
     ui->CONNECT_BUTTON->setEnabled(true);
     ui->DISCONNECT_BUTTON->setEnabled(false);
     ui->CONNECTION_STATUS->setText("DISCONNECTED");
     ui->CONNECTION_STATUS->setStyleSheet("color: red; font-weight: bold;");
+    ui->DURATION_LABEL->setText("--");
     trayIcon->setIcon(createTrayIcon(QColor(180, 0, 0)));
 }
 
@@ -230,32 +277,9 @@ void MainWindow::onCheckBoxClick(){
     ui->HOST_PASSWD->setEchoMode(ui->checkBox->checkState() == Qt::Checked ? QLineEdit::Normal : QLineEdit::Password );
 }
 
-void MainWindow::onSave()
-{
-    auto& config = ConfigManage::instance().client_cfg;
-    config.remote_addr = ui->HOST_NAME->text().toStdString();
-    config.remote_port = ui->HOST_PORT->text().toStdString();
-    config.setPassword(ui->HOST_PASSWD->text().toStdString());
-
-    boost::property_tree::ptree tree;
-    tree.put("run_type", "client");
-    tree.put("local_addr", config.local_addr);
-    tree.put("local_port", config.local_port);
-    tree.put("remote_addr", config.remote_addr);
-    tree.put("remote_port", config.remote_port);
-    tree.put("user_name", config.user_name);
-    tree.put("password", config.text_password);
-
-    try {
-        boost::property_tree::write_json("client.json", tree);
-        NOTICE_LOG << "config saved to client.json";
-    } catch (const std::exception& e) {
-        ERROR_LOG << "save config failed: " << e.what();
-    }
-}
-
 void MainWindow::closeEvent(QCloseEvent* event)
 {
+    autoSave();
     hide();
     event->ignore();
 }

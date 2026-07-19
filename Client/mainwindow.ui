@@ -166,6 +166,20 @@
            <property name="minimumWidth"><number>120</number></property>
           </widget>
          </item>
+         <item row="6" column="0">
+          <widget class="QLabel" name="label_duration">
+           <property name="text"><string>Duration</string></property>
+          </widget>
+         </item>
+         <item row="6" column="1">
+          <widget class="QLabel" name="DURATION_LABEL">
+           <property name="font">
+            <font><bold>true</bold></font>
+           </property>
+           <property name="text"><string>--</string></property>
+           <property name="minimumWidth"><number>120</number></property>
+          </widget>
+         </item>
         </layout>
      </widget>
     </item>
@@ -198,21 +212,16 @@
          <property name="text"><string>Disconnect</string></property>
         </widget>
        </item>
-       <item>
-        <widget class="QPushButton" name="PING_BUTTON">
-         <property name="text"><string>Ping</string></property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="SAVE_BUTTON">
-         <property name="text"><string>Save</string></property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="LOG_BUTTON">
-         <property name="text"><string>Log</string></property>
-        </widget>
-       </item>
+        <item>
+         <widget class="QPushButton" name="PING_BUTTON">
+          <property name="text"><string>Ping</string></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="LOG_BUTTON">
+          <property name="text"><string>Log</string></property>
+         </widget>
+        </item>
        <item>
         <spacer name="buttonSpacerRight">
          <property name="orientation">
@@ -270,7 +279,6 @@
   <tabstop>CONNECT_BUTTON</tabstop>
   <tabstop>DISCONNECT_BUTTON</tabstop>
   <tabstop>PING_BUTTON</tabstop>
-  <tabstop>SAVE_BUTTON</tabstop>
   <tabstop>LOG_BUTTON</tabstop>
  </tabstops>
  <resources/>
