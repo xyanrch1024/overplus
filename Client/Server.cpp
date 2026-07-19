@@ -20,11 +20,13 @@ Server::Server(const std::string& address, const std::string& port)
 
 void Server::start_accept()
 {
-    acceptor_.open(local_endpoint.protocol());
-    acceptor_.set_option(ip::tcp::acceptor::reuse_address(true));
-    acceptor_.bind(local_endpoint);
-    acceptor_.listen();
-    do_accept();
+    boost::asio::post(io_context, [this]() {
+        acceptor_.open(local_endpoint.protocol());
+        acceptor_.set_option(ip::tcp::acceptor::reuse_address(true));
+        acceptor_.bind(local_endpoint);
+        acceptor_.listen();
+        do_accept();
+    });
 }
 void Server::do_accept()
 {
@@ -61,11 +63,12 @@ void Server::stop()
 }
 void Server::stop_accept()
 {
-    if(acceptor_.is_open())
-    {
-        acceptor_.cancel();
-       acceptor_.close();
-    }
+    boost::asio::post(io_context, [this]() {
+        if (acceptor_.is_open()) {
+            acceptor_.cancel();
+            acceptor_.close();
+        }
+    });
 }
 void Server::add_signals()
 {
