@@ -120,6 +120,7 @@
            <property name="font">
             <font><bold>true</bold></font>
            </property>
+           <property name="styleSheet"><string>color: rgb(0, 180, 0);</string></property>
            <property name="text"><string>--</string></property>
            <property name="minimumWidth"><number>120</number></property>
            <property name="alignment">
@@ -137,6 +138,7 @@
            <property name="font">
             <font><bold>true</bold></font>
            </property>
+           <property name="styleSheet"><string>color: rgb(0, 180, 0);</string></property>
            <property name="text"><string>--</string></property>
            <property name="minimumWidth"><number>120</number></property>
            <property name="alignment">
@@ -154,6 +156,7 @@
            <property name="font">
             <font><bold>true</bold></font>
            </property>
+           <property name="styleSheet"><string>color: rgb(0, 180, 0);</string></property>
            <property name="text"><string>--</string></property>
            <property name="minimumWidth"><number>120</number></property>
            <property name="alignment">
