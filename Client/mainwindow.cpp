@@ -96,6 +96,7 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     connect(showAction, SIGNAL(triggered()), this, SLOT(onShowWindow()));
     connect(quitAction, SIGNAL(triggered()), this, SLOT(onQuit()));
     connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(onTrayActivated(QSystemTrayIcon::ActivationReason)));
+    connect(ui->actionAbout, SIGNAL(triggered()), this, SLOT(onAbout()));
 
     if(ConfigManage::instance().loaded)
     {    auto& config = ConfigManage::instance().client_cfg;
@@ -302,4 +303,12 @@ void MainWindow::onQuit()
 {
     trayIcon->setVisible(false);
     QApplication::quit();
+}
+
+void MainWindow::onAbout()
+{
+    QMessageBox::about(this, "About Overplus",
+        QString("<h3>Overplus %1</h3>"
+                "<p>Author: xyanrch / xyanrch1024</p>")
+        .arg(OVERPLUS_VERSION_STR));
 }

@@ -35,6 +35,7 @@ public slots:
     void updateStats();
     void updateDuration();
     void autoSave();
+    void onAbout();
 private:
     Ui::MainWindow *ui;
     Server& server;
