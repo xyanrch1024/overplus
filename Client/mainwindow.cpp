@@ -15,6 +15,9 @@
 #include <chrono>
 #include <thread>
 
+static const QString ARROW_UP = QString::fromUtf8("\xe2\x86\x91");
+static const QString ARROW_DOWN = QString::fromUtf8("\xe2\x86\x93");
+
 static QString formatSpeed(uint64_t bytes_per_second) {
     uint64_t bits = bytes_per_second * 8;
     if (bits < 1000)
@@ -159,11 +162,11 @@ void MainWindow::autoSave()
 void MainWindow::updateStats()
 {
     auto [up, down] = ProxyStats::instance().getAndResetDelta();
-    ui->UPLOAD_LABEL->setText(formatSpeed(up));
-    ui->DOWNLOAD_LABEL->setText(formatSpeed(down));
+    ui->UPLOAD_LABEL->setText(ARROW_UP + " " + formatSpeed(up));
+    ui->DOWNLOAD_LABEL->setText(ARROW_DOWN + " " + formatSpeed(down));
 
     auto [total_up, total_down] = ProxyStats::instance().getTotal();
-    ui->TOTAL_LABEL->setText(QString("UP:%1  DN:%2").arg(formatTotal(total_up), formatTotal(total_down)));
+    ui->TOTAL_LABEL->setText(ARROW_UP + " " + formatTotal(total_up) + "  " + ARROW_DOWN + " " + formatTotal(total_down));
 
     ui->SESSIONS_LABEL->setText(QString::number(ProxyStats::instance().sessionCount()));
 
