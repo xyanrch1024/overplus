@@ -1,5 +1,5 @@
 #include "Server.h"
-#include "Shared/SessionStats.h"
+#include "Shared/ProxyStats.h"
 #include <boost/asio/io_context.hpp>
 #include <cstdlib>
 #include <memory>
@@ -42,7 +42,7 @@ void Server::do_accept()
             auto ep = new_session->socket().remote_endpoint(error);
             NOTICE_LOG << "accept incoming connection :" << ep.address().to_string();
             new_session->start();
-            SessionStats::instance().sessionCreated();
+            ProxyStats::instance().sessionCreated();
         } else {
             NOTICE_LOG << "accept incoming connection fail:" << ec.message();
         }

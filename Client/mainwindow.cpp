@@ -8,8 +8,7 @@
 #include "Shared/ConfigManage.h"
 #include "Shared/Version.h"
 #include "Shared/Log.h"
-#include "Shared/TrafficStats.h"
-#include "Shared/SessionStats.h"
+#include "Shared/ProxyStats.h"
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/asio.hpp>
@@ -119,14 +118,14 @@ void MainWindow::appendLog(const QString& line)
 
 void MainWindow::updateStats()
 {
-    auto [up, down] = TrafficStats::instance().getAndResetDelta();
+    auto [up, down] = ProxyStats::instance().getAndResetDelta();
     ui->UPLOAD_LABEL->setText(formatSpeed(up));
     ui->DOWNLOAD_LABEL->setText(formatSpeed(down));
 
-    auto [total_up, total_down] = TrafficStats::instance().getTotal();
+    auto [total_up, total_down] = ProxyStats::instance().getTotal();
     ui->TOTAL_LABEL->setText(QString("UP:%1  DN:%2").arg(formatTotal(total_up), formatTotal(total_down)));
 
-    ui->SESSIONS_LABEL->setText(QString::number(SessionStats::instance().currentCount()));
+    ui->SESSIONS_LABEL->setText(QString::number(ProxyStats::instance().sessionCount()));
 }
 
 void MainWindow::onConnect()

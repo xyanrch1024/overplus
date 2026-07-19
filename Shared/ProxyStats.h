@@ -3,10 +3,10 @@
 #include <cstdint>
 #include <utility>
 
-class TrafficStats {
+class ProxyStats {
 public:
-    static TrafficStats& instance() {
-        static TrafficStats s;
+    static ProxyStats& instance() {
+        static ProxyStats s;
         return s;
     }
 
@@ -33,12 +33,17 @@ public:
                 total_downstream_.load(std::memory_order_relaxed)};
     }
 
+    void sessionCreated() { session_count_.fetch_add(1, std::memory_order_relaxed); }
+    void sessionDestroyed() { session_count_.fetch_sub(1, std::memory_order_relaxed); }
+    uint64_t sessionCount() const { return session_count_.load(std::memory_order_relaxed); }
+
 private:
-    TrafficStats() = default;
+    ProxyStats() = default;
     std::atomic<uint64_t> total_upstream_{0};
     std::atomic<uint64_t> total_downstream_{0};
     std::atomic<uint64_t> delta_upstream_{0};
     std::atomic<uint64_t> delta_downstream_{0};
     uint64_t smoothed_up_{0};
     uint64_t smoothed_down_{0};
+    std::atomic<uint64_t> session_count_{0};
 };

@@ -2,8 +2,7 @@
 #include "Session.h"
 #include "Shared/ConfigManage.h"
 #include "Shared/Log.h"
-#include "Shared/TrafficStats.h"
-#include "Shared/SessionStats.h"
+#include "Shared/ProxyStats.h"
 #include <Protocol/VProtocal/VRequest.h>
 #include <Protocol/socks5/socks5.h>
 #include <boost/asio/buffer.hpp>
@@ -260,7 +259,7 @@ void Session::read_packet(int direction)
             [this, self](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
                     DEBUG_LOG << "--> upstream: " << std::to_string(length) << " bytes";
-                    TrafficStats::instance().addUpstreamDelta(length);
+                    ProxyStats::instance().addUpstreamDelta(length);
                     write_packet(1, length);
                 } else // if (ec != boost::asio::error::eof)
                 {
@@ -277,7 +276,7 @@ void Session::read_packet(int direction)
                 if (!ec) {
 
                     DEBUG_LOG << "<-- local: " << std::to_string(length) << " bytes";
-                    TrafficStats::instance().addDownstreamDelta(length);
+                    ProxyStats::instance().addDownstreamDelta(length);
                     write_packet(2, length);
                 } else // if (ec != boost::asio::error::eof)
                 {
@@ -322,7 +321,7 @@ boost::asio::ip::tcp::socket& Session::socket()
 }
 void Session::destroy()
 {
-    SessionStats::instance().sessionDestroyed();
+    ProxyStats::instance().sessionDestroyed();
     NOTICE_LOG << "session destroyed";
     // Log::log_with_endpoint(in_endpoint, "disconnected, " + to_string(recv_len) + " bytes received, " + to_string(sent_len) + " bytes sent, lasted for " + to_string(time(nullptr) - start_time) + " seconds", Log::INFO);
     boost::system::error_code ec;
