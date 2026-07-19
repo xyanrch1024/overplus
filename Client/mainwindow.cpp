@@ -12,6 +12,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/asio.hpp>
 #include <chrono>
+#include <thread>
 
 static QIcon createTrayIcon(const QColor& bg)
 {
@@ -132,15 +133,14 @@ void MainWindow::onPing()
     ui->PING_BUTTON->setEnabled(false);
     ui->LATENCY_LABEL->setText("Testing...");
 
-    auto* ioc = new boost::asio::io_context();
-    auto* socket = new boost::asio::ip::tcp::socket(*ioc);
-    auto* timer = new boost::asio::steady_timer(*ioc);
+    auto ioc = std::make_shared<boost::asio::io_context>();
+    auto socket = std::make_shared<boost::asio::ip::tcp::socket>(*ioc);
+    auto resolver = std::make_shared<boost::asio::ip::tcp::resolver>(*ioc);
 
     auto start = std::chrono::steady_clock::now();
-    boost::asio::ip::tcp::resolver resolver(*ioc);
 
-    resolver.async_resolve(addr, port,
-        [socket, timer, start, ioc, this, addr, port](
+    resolver->async_resolve(addr, port,
+        [socket, resolver, start, ioc, this](
             const boost::system::error_code& ec, boost::asio::ip::tcp::resolver::results_type results) {
             if (ec || results.empty()) {
                 QMetaObject::invokeMethod(this, [this]() {
@@ -148,13 +148,10 @@ void MainWindow::onPing()
                     ui->LATENCY_LABEL->setStyleSheet("color: red; font-weight: bold;");
                     ui->PING_BUTTON->setEnabled(true);
                 }, Qt::QueuedConnection);
-                delete timer;
-                delete socket;
-                delete ioc;
                 return;
             }
             socket->async_connect(*results.begin(),
-                [socket, timer, start, ioc, this, addr, port](
+                [socket, start, ioc, this](
                     const boost::system::error_code& ec) {
                     auto end = std::chrono::steady_clock::now();
                     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
@@ -179,11 +176,10 @@ void MainWindow::onPing()
                         boost::system::error_code sec;
                         socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both, sec);
                     }
-                    delete timer;
-                    delete socket;
-                    delete ioc;
                 });
         });
+
+    std::thread([ioc]() { ioc->run(); }).detach();
 }
 
 void MainWindow::onToggleLog()

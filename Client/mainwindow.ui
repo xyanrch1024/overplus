@@ -71,13 +71,13 @@
      </layout>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="statusLayout">
-      <item>
+     <layout class="QFormLayout" name="statusForm">
+      <item row="0" column="0">
        <widget class="QLabel" name="label_2">
-        <property name="text"><string>Status:</string></property>
+        <property name="text"><string>Status</string></property>
        </widget>
       </item>
-      <item>
+      <item row="0" column="1">
        <widget class="QLabel" name="CONNECTION_STATUS">
         <property name="font">
          <font><bold>true</bold></font>
@@ -86,25 +86,12 @@
         <property name="minimumWidth"><number>120</number></property>
        </widget>
       </item>
-      <item>
-       <spacer name="statusSpacer">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
+      <item row="1" column="0">
        <widget class="QLabel" name="label_latency">
-        <property name="text"><string>Latency:</string></property>
+        <property name="text"><string>Latency</string></property>
        </widget>
       </item>
-      <item>
+      <item row="1" column="1">
        <widget class="QLabel" name="LATENCY_LABEL">
         <property name="font">
          <font><bold>true</bold></font>
