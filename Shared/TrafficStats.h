@@ -26,6 +26,11 @@ public:
         return {up, down};
     }
 
+    std::pair<uint64_t, uint64_t> getTotal() {
+        return {total_upstream_.load(std::memory_order_relaxed),
+                total_downstream_.load(std::memory_order_relaxed)};
+    }
+
 private:
     TrafficStats() = default;
     std::atomic<uint64_t> total_upstream_{0};

@@ -25,6 +25,17 @@ static QString formatSpeed(uint64_t bytes_per_second) {
         return QString("%1 Mbps").arg(bits / 1000000.0, 0, 'f', 2);
 }
 
+static QString formatTotal(uint64_t bytes) {
+    if (bytes < 1024ULL)
+        return QString("%1 B").arg(bytes);
+    else if (bytes < 1024ULL * 1024)
+        return QString("%1 KB").arg(bytes / 1024.0, 0, 'f', 1);
+    else if (bytes < 1024ULL * 1024 * 1024)
+        return QString("%1 MB").arg(bytes / (1024.0 * 1024), 0, 'f', 1);
+    else
+        return QString("%1 GB").arg(bytes / (1024.0 * 1024 * 1024), 0, 'f', 2);
+}
+
 static QIcon createTrayIcon(const QColor& bg)
 {
     QPixmap pix(64, 64);
@@ -110,6 +121,9 @@ void MainWindow::updateStats()
     auto [up, down] = TrafficStats::instance().getAndResetDelta();
     ui->UPLOAD_LABEL->setText(formatSpeed(up));
     ui->DOWNLOAD_LABEL->setText(formatSpeed(down));
+
+    auto [total_up, total_down] = TrafficStats::instance().getTotal();
+    ui->TOTAL_LABEL->setText(QString("↑ %1 ↓ %2").arg(formatTotal(total_up), formatTotal(total_down)));
 }
 
 void MainWindow::onConnect()
