@@ -78,7 +78,7 @@ void DtlsChannel::do_handshake()
 
     if (ret <= 0) {
         int err = ::SSL_get_error(ssl_, ret);
-        DEBUG_LOG << "DTLS handshake: SSL_do_handshake ret=" << ret << " err=" << err;
+        NOTICE_LOG << "DTLS handshake: SSL_do_handshake ret=" << ret << " err=" << err;
         if (err == SSL_ERROR_WANT_READ) {
             struct timeval timeout;
             std::memset(&timeout, 0, sizeof(timeout));
@@ -88,7 +88,7 @@ void DtlsChannel::do_handshake()
             if (duration.count() == 0) {
                 duration = std::chrono::milliseconds(500);
             }
-            DEBUG_LOG << "DTLS handshake: setting timer " << duration.count() << "us";
+            NOTICE_LOG << "DTLS handshake: timeout in " << duration.count() << "us";
             timer_.expires_after(duration);
             timer_.async_wait([this](boost::system::error_code ec) {
                 if (!ec && running_) handle_timeout();
@@ -118,7 +118,7 @@ void DtlsChannel::drain_write_bio()
     char buf[65535];
     int n;
     while ((n = ::BIO_read(write_bio_, buf, sizeof(buf))) > 0) {
-        DEBUG_LOG << "DTLS drain_write_bio: sending " << n << " bytes to " << server_ep_.address().to_string() << ":" << server_ep_.port();
+        NOTICE_LOG << "DTLS sending " << n << " bytes to " << server_ep_.address().to_string() << ":" << server_ep_.port();
         socket_.async_send_to(
             boost::asio::buffer(buf, n), server_ep_,
             [](boost::system::error_code ec, std::size_t sent) {
@@ -152,12 +152,12 @@ void DtlsChannel::on_receive(boost::system::error_code ec, std::size_t len)
 {
     if (ec || !running_) {
         if (ec != boost::asio::error::operation_aborted) {
-            DEBUG_LOG << "DTLS receive error: " << ec.message();
+            NOTICE_LOG << "DTLS receive error: " << ec.message();
         }
         return;
     }
 
-    DEBUG_LOG << "DTLS recv " << len << " bytes, handshake_done=" << handshake_done_;
+    NOTICE_LOG << "DTLS recv " << len << " bytes, handshake_done=" << handshake_done_;
     ::BIO_write(read_bio_, recv_buf_.data(), len);
 
     if (!handshake_done_) {
@@ -172,7 +172,7 @@ void DtlsChannel::on_receive(boost::system::error_code ec, std::size_t len)
         } else {
             int err = ::SSL_get_error(ssl_, n);
             if (err != SSL_ERROR_WANT_READ && err != SSL_ERROR_ZERO_RETURN) {
-                DEBUG_LOG << "DTLS SSL_read error: " << err;
+                NOTICE_LOG << "DTLS SSL_read error: " << err;
             }
         }
     }
@@ -182,12 +182,21 @@ void DtlsChannel::on_receive(boost::system::error_code ec, std::size_t len)
 
 void DtlsChannel::send(const std::string& data)
 {
-    if (!ssl_ || !handshake_done_ || !running_) return;
+    if (!ssl_) { NOTICE_LOG << "DTLS send skipped: ssl_=null, size=" << data.size(); return; }
+    if (!handshake_done_) { NOTICE_LOG << "DTLS send skipped: handshake not done, size=" << data.size(); return; }
+    if (!running_) { NOTICE_LOG << "DTLS send skipped: not running, size=" << data.size(); return; }
+
+    NOTICE_LOG << "DTLS send: " << data.size() << " bytes";
 
     int ret = ::SSL_write(ssl_, data.data(), data.size());
     if (ret <= 0) {
         int err = ::SSL_get_error(ssl_, ret);
-        DEBUG_LOG << "DTLS SSL_write error: " << err;
+        NOTICE_LOG << "DTLS SSL_write error: " << err << " data_size=" << data.size();
+
+        if (err == SSL_ERROR_WANT_WRITE || err == SSL_ERROR_WANT_READ) {
+            drain_write_bio();
+            do_receive();
+        }
         return;
     }
 

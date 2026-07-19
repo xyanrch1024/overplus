@@ -153,11 +153,11 @@ void DtlsServerSession::try_read_app_data()
             }
         } else if (state_ == PROXY) {
             std::string data(buf, n);
-            DEBUG_LOG << "DTLS PROXY recv " << n << " bytes";
+            NOTICE_LOG << "DTLS PROXY recv " << n << " bytes";
             size_t frame_len = 0;
             UdpFrame frame;
             if (frame.parse(data, frame_len)) {
-                DEBUG_LOG << "DTLS recv UDP frame: " << frame.addr_str()
+                NOTICE_LOG << "DTLS recv UDP frame: " << frame.addr_str()
                           << " payload=" << frame.payload.size();
 
                 if (frame.addr_type == UdpFrame::ADDR_DOMAIN) {
@@ -232,7 +232,7 @@ void DtlsServerSession::do_send_to_target(const udp::endpoint& target_ep, const 
     target_ep_ = target_ep;
     auto self(shared_from_this());
 
-    DEBUG_LOG << "DTLS sending " << payload.size() << " bytes to target "
+    NOTICE_LOG << "DTLS sending " << payload.size() << " bytes to target "
               << target_ep.address().to_string() << ":" << target_ep.port();
 
     target_socket_.async_send_to(
@@ -249,10 +249,10 @@ void DtlsServerSession::do_read_target()
     if (state_ == DESTROY) return;
 
     auto self(shared_from_this());
-    udp::endpoint sender_ep;
+    auto sender_ep = std::make_shared<udp::endpoint>();
 
     target_socket_.async_receive_from(
-        boost::asio::buffer(target_recv_buf_), sender_ep,
+        boost::asio::buffer(target_recv_buf_), *sender_ep,
         [this, self, sender_ep](boost::system::error_code ec, std::size_t len) {
             if (ec) {
                 if (ec != boost::asio::error::operation_aborted) {
@@ -261,7 +261,7 @@ void DtlsServerSession::do_read_target()
                 return;
             }
 
-            std::string frame = UdpFrame::generate(sender_ep,
+            std::string frame = UdpFrame::generate(*sender_ep,
                 std::string(target_recv_buf_.data(), len));
             send_to_client(frame);
             do_read_target();
@@ -272,7 +272,7 @@ void DtlsServerSession::send_to_client(const std::string& data)
 {
     if (!ssl_ || state_ == DESTROY) return;
 
-    DEBUG_LOG << "DTLS send_to_client " << data.size() << " bytes";
+    NOTICE_LOG << "DTLS send_to_client " << data.size() << " bytes";
 
     int ret = SSL_write(ssl_, data.data(), static_cast<int>(data.size()));
     if (ret <= 0) {

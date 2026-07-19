@@ -63,7 +63,7 @@ void UdpRelay::stop()
 
 void UdpRelay::flush_pending()
 {
-    DEBUG_LOG << "UDP relay flushing " << pending_frames_.size() << " pending frames";
+    NOTICE_LOG << "UDP relay flushing " << pending_frames_.size() << " pending frames";
     while (!pending_frames_.empty() && dtls_ && dtls_->is_ready()) {
         dtls_->send(pending_frames_.front());
         pending_frames_.pop();
@@ -81,7 +81,7 @@ void UdpRelay::on_dtls_data(const char* data, size_t len)
         return;
     }
 
-    DEBUG_LOG << "UDP relay <-- server: " << frame.addr_str()
+    NOTICE_LOG << "UDP relay <-- server: " << frame.addr_str()
               << " " << frame.payload.size() << " bytes";
 
     ProxyStats::instance().addDownstreamDelta(len);
@@ -121,16 +121,16 @@ void UdpRelay::do_receive_local()
         [this](boost::system::error_code ec, std::size_t len) {
             if (ec || !running_) return;
 
-            DEBUG_LOG << "UDP relay --> server: " << len << " bytes from "
+            NOTICE_LOG << "UDP relay --> server: " << len << " bytes from "
                       << sender_ep_.address().to_string() << ":" << sender_ep_.port();
 
             ProxyStats::instance().addUpstreamDelta(len);
 
-            if (len < 4) return;
+            if (len < 4) { NOTICE_LOG << "UDP local recv too short: " << len; return; }
 
             const char* p = recv_buf_.data();
-            if (p[0] != 0x00 || p[1] != 0x00) return;
-            if (p[2] != 0x00) return;
+            if (p[0] != 0x00 || p[1] != 0x00) { NOTICE_LOG << "UDP local recv bad RSV: " << (int)p[0] << " " << (int)p[1]; return; }
+            if (p[2] != 0x00) { NOTICE_LOG << "UDP local recv FRAG=" << (int)p[2] << " (expected 0)"; return; }
 
             uint8_t atyp = static_cast<uint8_t>(p[3]);
             p += 4;
@@ -143,7 +143,7 @@ void UdpRelay::do_receive_local()
 
             switch (atyp) {
             case 0x01: {
-                if (len < 4 + 2) return;
+                if (len < 4 + 2) { NOTICE_LOG << "UDP local recv IPv4 too short: " << len; return; }
                 target_addr.assign(p, 4);
                 target_port = (static_cast<uint8_t>(p[4]) << 8) | static_cast<uint8_t>(p[5]);
                 payload = p + 6;
@@ -151,11 +151,11 @@ void UdpRelay::do_receive_local()
                 break;
             }
             case 0x03: {
-                if (len < 1) return;
+                if (len < 1) { NOTICE_LOG << "UDP local recv DOMAIN too short: " << len; return; }
                 uint8_t dlen = static_cast<uint8_t>(p[0]);
                 p++;
                 len--;
-                if (len < dlen + 2) return;
+                if (len < dlen + 2) { NOTICE_LOG << "UDP local recv DOMAIN addr+port too short: " << len; return; }
                 target_addr.assign(p, dlen);
                 target_port = (static_cast<uint8_t>(p[dlen]) << 8) | static_cast<uint8_t>(p[dlen + 1]);
                 payload = p + dlen + 2;
@@ -163,7 +163,7 @@ void UdpRelay::do_receive_local()
                 break;
             }
             case 0x04: {
-                if (len < 16 + 2) return;
+                if (len < 16 + 2) { NOTICE_LOG << "UDP local recv IPv6 too short: " << len; return; }
                 target_addr.assign(p, 16);
                 target_port = (static_cast<uint8_t>(p[16]) << 8) | static_cast<uint8_t>(p[17]);
                 payload = p + 18;
@@ -171,6 +171,7 @@ void UdpRelay::do_receive_local()
                 break;
             }
             default:
+                NOTICE_LOG << "UDP local recv unknown ATYP: " << (int)atyp;
                 return;
             }
 
@@ -193,8 +194,11 @@ void UdpRelay::do_receive_local()
             }
 
             if (dtls_ && dtls_->is_ready()) {
+                NOTICE_LOG << "UDP relay sending via DTLS: " << payload_len << " payload bytes to "
+                          << (atyp == 0x01 ? "IPv4" : atyp == 0x03 ? "domain" : "IPv6") << " port " << target_port;
                 dtls_->send(frame);
             } else {
+                NOTICE_LOG << "UDP relay queuing pending frame (dtls_ready=" << (dtls_ ? dtls_->is_ready() : false) << ")";
                 pending_frames_.push(std::move(frame));
             }
 
