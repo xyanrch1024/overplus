@@ -123,7 +123,7 @@ void MainWindow::updateStats()
     ui->DOWNLOAD_LABEL->setText(formatSpeed(down));
 
     auto [total_up, total_down] = TrafficStats::instance().getTotal();
-    ui->TOTAL_LABEL->setText(QString("↑ %1 ↓ %2").arg(formatTotal(total_up), formatTotal(total_down)));
+    ui->TOTAL_LABEL->setText(QString("UP:%1  DN:%2").arg(formatTotal(total_up), formatTotal(total_down)));
 }
 
 void MainWindow::onConnect()
