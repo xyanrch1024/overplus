@@ -1,14 +1,17 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
-#include<QMessageBox>
+#include <QMessageBox>
 #include <QApplication>
 #include <QPainter>
 #include <QPixmap>
 #include <QStyle>
 #include "Shared/ConfigManage.h"
 #include "Shared/Version.h"
+#include "Shared/Log.h"
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <boost/asio.hpp>
+#include <chrono>
 
 static QIcon createTrayIcon(const QColor& bg)
 {
@@ -36,6 +39,8 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     setWindowTitle(QString("Overplus %1").arg(OVERPLUS_VERSION_STR));
     QApplication::setQuitOnLastWindowClosed(false);
 
+    ui->DISCONNECT_BUTTON->setEnabled(false);
+
     trayIcon = new QSystemTrayIcon(this);
     trayIcon->setIcon(createTrayIcon(QColor(180, 0, 0)));
     trayIcon->setToolTip("overplus");
@@ -49,6 +54,8 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     connect(ui->SAVE_BUTTON, SIGNAL(clicked()), this, SLOT(onSave()));
     connect(ui->CONNECT_BUTTON, SIGNAL(clicked()), this, SLOT(onConnect()));
     connect(ui->DISCONNECT_BUTTON, SIGNAL(clicked()), this, SLOT(onDisconnect()));
+    connect(ui->PING_BUTTON, SIGNAL(clicked()), this, SLOT(onPing()));
+    connect(ui->LOG_BUTTON, SIGNAL(clicked()), this, SLOT(onToggleLog()));
     connect(ui->checkBox, SIGNAL(clicked()), this, SLOT(onCheckBoxClick()));
     connect(showAction, SIGNAL(triggered()), this, SLOT(onShowWindow()));
     connect(quitAction, SIGNAL(triggered()), this, SLOT(onQuit()));
@@ -62,19 +69,30 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     }
     statusBar()->showMessage(QString("Overplus %1").arg(OVERPLUS_VERSION_STR));
 
+    logger::setOutput([this](std::string&& buf) {
+        QString line = QString::fromUtf8(buf.c_str(), buf.size()).trimmed();
+        if (!line.isEmpty()) {
+            QMetaObject::invokeMethod(this, [this, line]() {
+                appendLog(line);
+            }, Qt::QueuedConnection);
+        }
+    });
 }
 
 MainWindow::~MainWindow()
 {
-
     delete ui;
-
 }
- void MainWindow::onConnect()
- {
 
-     ui->CONNECT_BUTTON->setEnabled(false);
-     ui->DISCONNECT_BUTTON->setEnabled(true);
+void MainWindow::appendLog(const QString& line)
+{
+    ui->LOG_VIEW->appendPlainText(line);
+}
+
+void MainWindow::onConnect()
+{
+    ui->CONNECT_BUTTON->setEnabled(false);
+    ui->DISCONNECT_BUTTON->setEnabled(true);
     ui->CONNECTION_STATUS->setText("CONNECTED");
     ui->CONNECTION_STATUS->setStyleSheet("color: green; font-weight: bold;");
     trayIcon->setIcon(createTrayIcon(QColor(0, 180, 0)));
@@ -85,78 +103,145 @@ MainWindow::~MainWindow()
 
     auto psswd = ui->HOST_PASSWD->text().toStdString();
     config.setPassword(psswd);
-    NOTICE_LOG<<"Read config frome user input:"<<config.remote_addr<<":"<< config.remote_port<<" password:"<<psswd;
+    NOTICE_LOG<<"Read config from user input:"<<config.remote_addr<<":"<< config.remote_port;
 
-    //config.password = ui->
     server.start_accept();
+}
 
+void MainWindow::onDisconnect()
+{
+    server.stop_accept();
+    ui->CONNECT_BUTTON->setEnabled(true);
+    ui->DISCONNECT_BUTTON->setEnabled(false);
+    ui->CONNECTION_STATUS->setText("DISCONNECTED");
+    ui->CONNECTION_STATUS->setStyleSheet("color: red; font-weight: bold;");
+    trayIcon->setIcon(createTrayIcon(QColor(180, 0, 0)));
+}
 
+void MainWindow::onPing()
+{
+    auto& config = ConfigManage::instance().client_cfg;
+    std::string addr = ui->HOST_NAME->text().toStdString();
+    std::string port = ui->HOST_PORT->text().toStdString();
 
- }
+    if (addr.empty() || port.empty()) {
+        ui->LATENCY_LABEL->setText("N/A");
+        return;
+    }
 
- void MainWindow::onDisconnect()
- {
-     server.stop_accept();
-      ui->CONNECT_BUTTON->setEnabled(true);
-      ui->DISCONNECT_BUTTON->setEnabled(false);
-       ui->CONNECTION_STATUS->setText("DISCONNECTED");
-       ui->CONNECTION_STATUS->setStyleSheet("color: red; font-weight: bold;");
-       trayIcon->setIcon(createTrayIcon(QColor(180, 0, 0)));
+    ui->PING_BUTTON->setEnabled(false);
+    ui->LATENCY_LABEL->setText("Testing...");
 
- }
- void MainWindow::onCheckBoxClick(){
+    auto* ioc = new boost::asio::io_context();
+    auto* socket = new boost::asio::ip::tcp::socket(*ioc);
+    auto* timer = new boost::asio::steady_timer(*ioc);
 
-      ui->HOST_PASSWD->setEchoMode(ui->checkBox->checkState() == Qt::Checked ? QLineEdit::Normal : QLineEdit::Password );
- }
+    auto start = std::chrono::steady_clock::now();
+    boost::asio::ip::tcp::resolver resolver(*ioc);
 
- void MainWindow::onSave()
- {
-     auto& config = ConfigManage::instance().client_cfg;
-     config.remote_addr = ui->HOST_NAME->text().toStdString();
-     config.remote_port = ui->HOST_PORT->text().toStdString();
-     config.setPassword(ui->HOST_PASSWD->text().toStdString());
+    resolver.async_resolve(addr, port,
+        [socket, timer, start, ioc, this, addr, port](
+            const boost::system::error_code& ec, boost::asio::ip::tcp::resolver::results_type results) {
+            if (ec || results.empty()) {
+                QMetaObject::invokeMethod(this, [this]() {
+                    ui->LATENCY_LABEL->setText("Failed");
+                    ui->LATENCY_LABEL->setStyleSheet("color: red; font-weight: bold;");
+                    ui->PING_BUTTON->setEnabled(true);
+                }, Qt::QueuedConnection);
+                delete timer;
+                delete socket;
+                delete ioc;
+                return;
+            }
+            socket->async_connect(*results.begin(),
+                [socket, timer, start, ioc, this, addr, port](
+                    const boost::system::error_code& ec) {
+                    auto end = std::chrono::steady_clock::now();
+                    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
-     boost::property_tree::ptree tree;
-     tree.put("run_type", "client");
-     tree.put("local_addr", config.local_addr);
-     tree.put("local_port", config.local_port);
-     tree.put("remote_addr", config.remote_addr);
-     tree.put("remote_port", config.remote_port);
-     tree.put("user_name", config.user_name);
-     tree.put("password", config.text_password);
+                    if (ec) {
+                        QMetaObject::invokeMethod(this, [this]() {
+                            ui->LATENCY_LABEL->setText("Timeout");
+                            ui->LATENCY_LABEL->setStyleSheet("color: red; font-weight: bold;");
+                            ui->PING_BUTTON->setEnabled(true);
+                        }, Qt::QueuedConnection);
+                    } else {
+                        QMetaObject::invokeMethod(this, [this, ms]() {
+                            QString text = QString("%1 ms").arg(ms);
+                            QColor color = ms < 100 ? QColor(0, 150, 0) :
+                                           ms < 300 ? QColor(180, 120, 0) :
+                                           QColor(200, 0, 0);
+                            ui->LATENCY_LABEL->setText(text);
+                            ui->LATENCY_LABEL->setStyleSheet(
+                                QString("color: %1; font-weight: bold;").arg(color.name()));
+                            ui->PING_BUTTON->setEnabled(true);
+                        }, Qt::QueuedConnection);
+                        boost::system::error_code sec;
+                        socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both, sec);
+                    }
+                    delete timer;
+                    delete socket;
+                    delete ioc;
+                });
+        });
+}
 
-     try {
-         boost::property_tree::write_json("client.json", tree);
-         NOTICE_LOG << "config saved to client.json";
-     } catch (const std::exception& e) {
-         ERROR_LOG << "save config failed: " << e.what();
-     }
- }
+void MainWindow::onToggleLog()
+{
+    bool visible = ui->LOG_VIEW->isVisible();
+    ui->LOG_VIEW->setVisible(!visible);
+}
 
- void MainWindow::closeEvent(QCloseEvent* event)
- {
-     hide();
-     event->ignore();
- }
+void MainWindow::onCheckBoxClick(){
+    ui->HOST_PASSWD->setEchoMode(ui->checkBox->checkState() == Qt::Checked ? QLineEdit::Normal : QLineEdit::Password );
+}
 
- void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
- {
-     if (reason == QSystemTrayIcon::DoubleClick) {
-         onShowWindow();
-     }
- }
+void MainWindow::onSave()
+{
+    auto& config = ConfigManage::instance().client_cfg;
+    config.remote_addr = ui->HOST_NAME->text().toStdString();
+    config.remote_port = ui->HOST_PORT->text().toStdString();
+    config.setPassword(ui->HOST_PASSWD->text().toStdString());
 
- void MainWindow::onShowWindow()
- {
-     showNormal();
-     activateWindow();
-     raise();
- }
+    boost::property_tree::ptree tree;
+    tree.put("run_type", "client");
+    tree.put("local_addr", config.local_addr);
+    tree.put("local_port", config.local_port);
+    tree.put("remote_addr", config.remote_addr);
+    tree.put("remote_port", config.remote_port);
+    tree.put("user_name", config.user_name);
+    tree.put("password", config.text_password);
 
- void MainWindow::onQuit()
- {
-     trayIcon->setVisible(false);
-     QApplication::quit();
- }
+    try {
+        boost::property_tree::write_json("client.json", tree);
+        NOTICE_LOG << "config saved to client.json";
+    } catch (const std::exception& e) {
+        ERROR_LOG << "save config failed: " << e.what();
+    }
+}
 
+void MainWindow::closeEvent(QCloseEvent* event)
+{
+    hide();
+    event->ignore();
+}
 
+void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
+{
+    if (reason == QSystemTrayIcon::DoubleClick) {
+        onShowWindow();
+    }
+}
+
+void MainWindow::onShowWindow()
+{
+    showNormal();
+    activateWindow();
+    raise();
+}
+
+void MainWindow::onQuit()
+{
+    trayIcon->setVisible(false);
+    QApplication::quit();
+}

@@ -7,13 +7,13 @@
     <x>0</x>
     <y>0</y>
     <width>520</width>
-    <height>360</height>
+    <height>520</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>380</width>
-    <height>280</height>
+    <width>420</width>
+    <height>400</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -24,7 +24,7 @@
     <property name="topMargin"><number>12</number></property>
     <property name="leftMargin"><number>16</number></property>
     <property name="rightMargin"><number>16</number></property>
-    <property name="bottomMargin"><number>12</number></property>
+    <property name="bottomMargin"><number>8</number></property>
     <item>
      <layout class="QFormLayout" name="configForm">
       <item row="0" column="0">
@@ -71,47 +71,49 @@
      </layout>
     </item>
     <item>
-     <spacer name="topSpacer">
-      <property name="orientation">
-       <enum>Qt::Vertical</enum>
-      </property>
-      <property name="sizeHint" stdset="0">
-       <size>
-        <width>20</width>
-        <height>10</height>
-       </size>
-      </property>
-     </spacer>
-    </item>
-    <item>
-     <layout class="QFormLayout" name="statusForm">
-      <item row="0" column="0">
+     <layout class="QHBoxLayout" name="statusLayout">
+      <item>
        <widget class="QLabel" name="label_2">
-        <property name="text"><string>Status</string></property>
+        <property name="text"><string>Status:</string></property>
        </widget>
       </item>
-      <item row="0" column="1">
+      <item>
        <widget class="QLabel" name="CONNECTION_STATUS">
         <property name="font">
          <font><bold>true</bold></font>
         </property>
         <property name="text"><string>DISCONNECTED</string></property>
+        <property name="minimumWidth"><number>120</number></property>
        </widget>
       </item>
-       </layout>
-    </item>
-    <item>
-     <spacer name="bottomSpacer">
-      <property name="orientation">
-       <enum>Qt::Vertical</enum>
-      </property>
-      <property name="sizeHint" stdset="0">
-       <size>
-        <width>20</width>
-        <height>10</height>
-       </size>
-      </property>
-     </spacer>
+      <item>
+       <spacer name="statusSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_latency">
+        <property name="text"><string>Latency:</string></property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="LATENCY_LABEL">
+        <property name="font">
+         <font><bold>true</bold></font>
+        </property>
+        <property name="text"><string>N/A</string></property>
+        <property name="minimumWidth"><number>80</number></property>
+       </widget>
+      </item>
+     </layout>
     </item>
     <item>
      <layout class="QHBoxLayout" name="buttonLayout">
@@ -132,25 +134,41 @@
        <widget class="QPushButton" name="CONNECT_BUTTON">
         <property name="text"><string>Connect</string></property>
         <property name="minimumSize">
-         <size><width>100</width><height>0</height></size>
+         <size><width>90</width><height>0</height></size>
         </property>
        </widget>
       </item>
       <item>
        <widget class="QPushButton" name="DISCONNECT_BUTTON">
-         <property name="text"><string>Disconnect</string></property>
-         <property name="minimumSize">
-          <size><width>100</width><height>0</height></size>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="SAVE_BUTTON">
-         <property name="text"><string>Save</string></property>
-         <property name="minimumSize">
-          <size><width>100</width><height>0</height></size>
-         </property>
-        </widget>
+        <property name="text"><string>Disconnect</string></property>
+        <property name="minimumSize">
+         <size><width>90</width><height>0</height></size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="PING_BUTTON">
+        <property name="text"><string>Ping</string></property>
+        <property name="minimumSize">
+         <size><width>90</width><height>0</height></size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="SAVE_BUTTON">
+        <property name="text"><string>Save</string></property>
+        <property name="minimumSize">
+         <size><width>90</width><height>0</height></size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="LOG_BUTTON">
+        <property name="text"><string>Log</string></property>
+        <property name="minimumSize">
+         <size><width>90</width><height>0</height></size>
+        </property>
+       </widget>
       </item>
       <item>
        <spacer name="buttonSpacerRight">
@@ -167,6 +185,26 @@
       </item>
      </layout>
     </item>
+    <item>
+     <widget class="QPlainTextEdit" name="LOG_VIEW">
+      <property name="readOnly"><bool>true</bool></property>
+      <property name="maximumBlockCount"><number>500</number></property>
+      <property name="placeholderText"><string>No log output yet</string></property>
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>160</height>
+       </size>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>9</pointsize>
+        <family>Courier New</family>
+       </font>
+      </property>
+      <property name="visible"><bool>false</bool></property>
+     </widget>
+    </item>
    </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
@@ -174,7 +212,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>480</width>
+     <width>520</width>
      <height>21</height>
     </rect>
    </property>
@@ -187,6 +225,9 @@
   <tabstop>HOST_PASSWD</tabstop>
   <tabstop>CONNECT_BUTTON</tabstop>
   <tabstop>DISCONNECT_BUTTON</tabstop>
+  <tabstop>PING_BUTTON</tabstop>
+  <tabstop>SAVE_BUTTON</tabstop>
+  <tabstop>LOG_BUTTON</tabstop>
  </tabstops>
  <resources/>
  <connections/>

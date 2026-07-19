@@ -5,7 +5,7 @@
 #include <QSystemTrayIcon>
 #include <QCloseEvent>
 #include <QMenu>
-#include"Server.h"
+#include "Server.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -25,9 +25,12 @@ public slots:
     void onDisconnect();
     void onCheckBoxClick();
     void onSave();
+    void onPing();
+    void onToggleLog();
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
     void onShowWindow();
     void onQuit();
+    void appendLog(const QString& line);
 private:
     Ui::MainWindow *ui;
     Server& server;
