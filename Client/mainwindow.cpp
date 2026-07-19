@@ -16,12 +16,13 @@
 #include <thread>
 
 static QString formatSpeed(uint64_t bytes_per_second) {
-    if (bytes_per_second < 1024)
-        return QString("%1 B/s").arg(bytes_per_second);
-    else if (bytes_per_second < 1024 * 1024)
-        return QString("%1 KB/s").arg(bytes_per_second / 1024.0, 0, 'f', 1);
+    uint64_t bits = bytes_per_second * 8;
+    if (bits < 1000)
+        return QString("%1 bps").arg(bits);
+    else if (bits < 1000000)
+        return QString("%1 Kbps").arg(bits / 1000.0, 0, 'f', 1);
     else
-        return QString("%1 MB/s").arg(bytes_per_second / (1024.0 * 1024.0), 0, 'f', 2);
+        return QString("%1 Mbps").arg(bits / 1000000.0, 0, 'f', 2);
 }
 
 static QIcon createTrayIcon(const QColor& bg)
@@ -91,7 +92,7 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
 
     statsTimer = new QTimer(this);
     connect(statsTimer, &QTimer::timeout, this, &MainWindow::updateStats);
-    statsTimer->start(1000);
+    statsTimer->start(2000);
 }
 
 MainWindow::~MainWindow()
