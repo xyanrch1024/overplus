@@ -22,7 +22,6 @@ public:
     ~logger();
     std::ostream& stream() { return impl.log_stream_; }
     static void setOutput(std::function<void(std::string&&)>&& outputFunc);
-    static std::function<void(std::string&&)> getOutput();
     static void setFlush(std::function<void()>&& fulsh);
     static void set_log_level(Loglevel level);
     static Loglevel get_log_level();

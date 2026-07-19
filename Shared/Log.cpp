@@ -42,10 +42,6 @@ void logger::setOutput(std::function<void(std::string&&)>&& outputFunc)
 {
     output_ = outputFunc;
 }
-std::function<void(std::string&&)> logger::getOutput()
-{
-    return output_;
-}
 void logger::setFlush(std::function<void()>&& flush)
 {
     flush_ = flush;

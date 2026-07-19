@@ -70,11 +70,8 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     }
     statusBar()->showMessage(QString("Overplus %1").arg(OVERPLUS_VERSION_STR));
 
-    auto fileOutput = logger::getOutput();
-    logger::setOutput([this, fileOutput](std::string&& buf) {
-        std::string copy(buf);
-        fileOutput(std::string(copy));
-        QString line = QString::fromUtf8(copy.c_str(), copy.size()).trimmed();
+    logger::setOutput([this](std::string&& buf) {
+        QString line = QString::fromUtf8(buf.c_str(), buf.size()).trimmed();
         if (!line.isEmpty()) {
             QMetaObject::invokeMethod(this, [this, line]() {
                 appendLog(line);
