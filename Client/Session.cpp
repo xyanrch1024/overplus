@@ -3,6 +3,7 @@
 #include "Shared/ConfigManage.h"
 #include "Shared/Log.h"
 #include "Shared/TrafficStats.h"
+#include "Shared/SessionStats.h"
 #include <Protocol/VProtocal/VRequest.h>
 #include <Protocol/socks5/socks5.h>
 #include <boost/asio/buffer.hpp>
@@ -321,6 +322,7 @@ boost::asio::ip::tcp::socket& Session::socket()
 }
 void Session::destroy()
 {
+    SessionStats::instance().sessionDestroyed();
     NOTICE_LOG << "session destroyed";
     // Log::log_with_endpoint(in_endpoint, "disconnected, " + to_string(recv_len) + " bytes received, " + to_string(sent_len) + " bytes sent, lasted for " + to_string(time(nullptr) - start_time) + " seconds", Log::INFO);
     boost::system::error_code ec;

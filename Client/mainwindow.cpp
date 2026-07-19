@@ -9,6 +9,7 @@
 #include "Shared/Version.h"
 #include "Shared/Log.h"
 #include "Shared/TrafficStats.h"
+#include "Shared/SessionStats.h"
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/asio.hpp>
@@ -124,6 +125,8 @@ void MainWindow::updateStats()
 
     auto [total_up, total_down] = TrafficStats::instance().getTotal();
     ui->TOTAL_LABEL->setText(QString("UP:%1  DN:%2").arg(formatTotal(total_up), formatTotal(total_down)));
+
+    ui->SESSIONS_LABEL->setText(QString::number(SessionStats::instance().currentCount()));
 }
 
 void MainWindow::onConnect()
