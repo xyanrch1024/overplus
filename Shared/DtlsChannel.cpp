@@ -11,7 +11,7 @@ DtlsChannel::DtlsChannel(boost::asio::io_context& io_ctx,
     , timer_(io_ctx)
     , password_(password)
 {
-    boost::asio::ip::address_v4 addr = boost::asio::ip::address_v4::from_string(server_addr);
+    boost::asio::ip::address addr = boost::asio::ip::address::from_string(server_addr);
     server_ep_ = boost::asio::ip::udp::endpoint(addr, server_port);
 
     SSL_CTX* ctx = ::SSL_CTX_new(::DTLS_client_method());
@@ -60,7 +60,7 @@ void DtlsChannel::stop()
 {
     running_ = false;
     boost::system::error_code ec;
-    timer_.cancel(ec);
+    timer_.cancel();
     socket_.cancel(ec);
     if (ssl_) {
         ::SSL_shutdown(ssl_);
