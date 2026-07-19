@@ -8,6 +8,7 @@
 #include "Shared/ConfigManage.h"
 #include "Shared/Version.h"
 #include "Shared/Log.h"
+#include "Shared/LogFile.h"
 #include "Shared/ProxyStats.h"
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -66,6 +67,8 @@ static QIcon createTrayIcon(const QColor& bg)
     return QIcon(pix);
 }
 
+extern LogFile* g_logfile;
+
 MainWindow::MainWindow(Server&s,QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -114,6 +117,9 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
 
     logger::setOutput([this](std::string&& buf) {
         QString line = QString::fromUtf8(buf.c_str(), buf.size()).trimmed();
+        if (g_logfile) {
+            g_logfile->append(std::move(buf));
+        }
         if (!line.isEmpty()) {
             QMetaObject::invokeMethod(this, [this, line]() {
                 appendLog(line);

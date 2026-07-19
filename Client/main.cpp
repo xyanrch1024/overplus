@@ -6,6 +6,7 @@
 #include "Shared/LogFile.h"
 #include "Shared/Version.h"
 #include <iostream>
+#include <memory>
 #include <string>
 
 #include "mainwindow.h"
@@ -14,6 +15,8 @@
 #include <QFileInfo>
 #include <stdio.h>
 #include <windows.h>
+
+LogFile* g_logfile = nullptr;
 const char* LOCAL_PROXY_ADDR = "127.0.0.1";
 const char* LOCAL_PROXY_PORT = "1080";
 const char* LOCAL_PROXY_PROTOCOL = "socks://127.0.0.1:1080";
@@ -99,11 +102,8 @@ int main(int argc, char* argv[])
         config.user_name = "test_usr";
     }
     LogFile logfile_("overplus", 10 * 1024 * 1024, true, 3, 1024, 30);
-    // logger::set_log_level(ConfigManage::instance().server_cfg.log_level);
+    g_logfile = &logfile_;
     logger::set_log_destination(Destination::D_FILE);
-    logger::setOutput([&](std::string&& buf) {
-        logfile_.append(std::move(buf));
-    });
     logger::setFlush([&]() {
         logfile_.flush();
     });
