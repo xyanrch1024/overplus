@@ -6,14 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>520</width>
-    <height>520</height>
+    <width>560</width>
+    <height>420</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
     <width>420</width>
-    <height>400</height>
+    <height>360</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -21,156 +21,172 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="mainLayout">
-    <property name="topMargin"><number>12</number></property>
-    <property name="leftMargin"><number>16</number></property>
-    <property name="rightMargin"><number>16</number></property>
+    <property name="spacing"><number>6</number></property>
+    <property name="topMargin"><number>8</number></property>
+    <property name="leftMargin"><number>12</number></property>
+    <property name="rightMargin"><number>12</number></property>
     <property name="bottomMargin"><number>8</number></property>
     <item>
-     <layout class="QFormLayout" name="configForm">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label">
-        <property name="text"><string>Host</string></property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QLineEdit" name="HOST_NAME">
-        <property name="placeholderText"><string>server address</string></property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_3">
-        <property name="text"><string>Port</string></property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QLineEdit" name="HOST_PORT">
-        <property name="placeholderText"><string>443</string></property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_4">
-        <property name="text"><string>Password</string></property>
-       </widget>
-      </item>
-      <item row="2" column="1">
-       <layout class="QHBoxLayout" name="passwordLayout">
-        <item>
-         <widget class="QLineEdit" name="HOST_PASSWD">
-          <property name="echoMode">
-           <enum>QLineEdit::Password</enum>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="checkBox">
-          <property name="text"><string>Visible</string></property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-     </layout>
+     <widget class="QGroupBox" name="configGroup">
+      <property name="title"><string>Server Config</string></property>
+      <layout class="QFormLayout" name="configForm">
+       <property name="topMargin"><number>8</number></property>
+       <property name="bottomMargin"><number>8</number></property>
+       <item row="0" column="0">
+        <widget class="QLabel" name="label">
+         <property name="text"><string>Host</string></property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLineEdit" name="HOST_NAME">
+         <property name="placeholderText"><string>server address</string></property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="label_3">
+         <property name="text"><string>Port</string></property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLineEdit" name="HOST_PORT">
+         <property name="placeholderText"><string>443</string></property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="label_4">
+         <property name="text"><string>Password</string></property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <layout class="QHBoxLayout" name="passwordLayout">
+         <item>
+          <widget class="QLineEdit" name="HOST_PASSWD">
+           <property name="echoMode">
+            <enum>QLineEdit::Password</enum>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="checkBox">
+           <property name="text"><string>Visible</string></property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
     </item>
     <item>
-     <layout class="QFormLayout" name="statusForm">
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_2">
-        <property name="text"><string>Status</string></property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QLabel" name="CONNECTION_STATUS">
-        <property name="font">
-         <font><bold>true</bold></font>
-        </property>
-        <property name="text"><string>DISCONNECTED</string></property>
-        <property name="minimumWidth"><number>120</number></property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_latency">
-        <property name="text"><string>Latency</string></property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QLabel" name="LATENCY_LABEL">
-        <property name="font">
-         <font><bold>true</bold></font>
-        </property>
-        <property name="text"><string>N/A</string></property>
-        <property name="minimumWidth"><number>80</number></property>
-       </widget>
-      </item>
-     </layout>
+     <widget class="QGroupBox" name="connectionGroup">
+      <property name="title"><string>Connection</string></property>
+      <layout class="QFormLayout" name="statusForm">
+       <property name="topMargin"><number>8</number></property>
+       <property name="bottomMargin"><number>8</number></property>
+       <item row="0" column="0">
+        <widget class="QLabel" name="label_2">
+         <property name="text"><string>Status</string></property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QLabel" name="CONNECTION_STATUS">
+         <property name="font">
+          <font><bold>true</bold></font>
+         </property>
+         <property name="text"><string>DISCONNECTED</string></property>
+         <property name="minimumWidth"><number>120</number></property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="label_latency">
+         <property name="text"><string>Latency</string></property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLabel" name="LATENCY_LABEL">
+         <property name="font">
+          <font><bold>true</bold></font>
+         </property>
+         <property name="text"><string>N/A</string></property>
+         <property name="minimumWidth"><number>80</number></property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="buttonLayout">
-      <item>
-       <spacer name="buttonSpacerLeft">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
-       <widget class="QPushButton" name="CONNECT_BUTTON">
-        <property name="text"><string>Connect</string></property>
-        <property name="minimumSize">
-         <size><width>90</width><height>0</height></size>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="DISCONNECT_BUTTON">
-        <property name="text"><string>Disconnect</string></property>
-        <property name="minimumSize">
-         <size><width>90</width><height>0</height></size>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="PING_BUTTON">
-        <property name="text"><string>Ping</string></property>
-        <property name="minimumSize">
-         <size><width>90</width><height>0</height></size>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="SAVE_BUTTON">
-        <property name="text"><string>Save</string></property>
-        <property name="minimumSize">
-         <size><width>90</width><height>0</height></size>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="LOG_BUTTON">
-        <property name="text"><string>Log</string></property>
-        <property name="minimumSize">
-         <size><width>90</width><height>0</height></size>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="buttonSpacerRight">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-     </layout>
+     <widget class="QGroupBox" name="actionsGroup">
+      <property name="title"><string>Actions</string></property>
+      <layout class="QHBoxLayout" name="buttonLayout">
+       <property name="topMargin"><number>8</number></property>
+       <property name="bottomMargin"><number>8</number></property>
+       <item>
+        <spacer name="buttonSpacerLeft">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item>
+        <widget class="QPushButton" name="CONNECT_BUTTON">
+         <property name="text"><string>Connect</string></property>
+         <property name="minimumSize">
+          <size><width>90</width><height>0</height></size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="DISCONNECT_BUTTON">
+         <property name="text"><string>Disconnect</string></property>
+         <property name="minimumSize">
+          <size><width>90</width><height>0</height></size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="PING_BUTTON">
+         <property name="text"><string>Ping</string></property>
+         <property name="minimumSize">
+          <size><width>90</width><height>0</height></size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="SAVE_BUTTON">
+         <property name="text"><string>Save</string></property>
+         <property name="minimumSize">
+          <size><width>90</width><height>0</height></size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="LOG_BUTTON">
+         <property name="text"><string>Log</string></property>
+         <property name="minimumSize">
+          <size><width>90</width><height>0</height></size>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="buttonSpacerRight">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </widget>
     </item>
     <item>
      <widget class="QPlainTextEdit" name="LOG_VIEW">
@@ -199,7 +215,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>520</width>
+     <width>560</width>
      <height>21</height>
     </rect>
    </property>
