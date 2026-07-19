@@ -295,20 +295,8 @@
       <height>21</height>
      </rect>
     </property>
-    <addaction name="menuHelp"/>
    </widget>
-   <widget class="QMenu" name="menuHelp">
-    <property name="title">
-     <string>Help</string>
-    </property>
-    <addaction name="actionAbout"/>
-   </widget>
-   <widget class="QAction" name="actionAbout">
-    <property name="text">
-     <string>About</string>
-    </property>
-   </widget>
-  <widget class="QStatusBar" name="statusbar"/>
+   <widget class="QStatusBar" name="statusbar"/>
  </widget>
  <tabstops>
   <tabstop>HOST_NAME</tabstop>

@@ -96,7 +96,10 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     connect(showAction, SIGNAL(triggered()), this, SLOT(onShowWindow()));
     connect(quitAction, SIGNAL(triggered()), this, SLOT(onQuit()));
     connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(onTrayActivated(QSystemTrayIcon::ActivationReason)));
-    connect(ui->actionAbout, SIGNAL(triggered()), this, SLOT(onAbout()));
+
+    QMenu* helpMenu = ui->menubar->addMenu("Help");
+    QAction* aboutAction = helpMenu->addAction("About");
+    connect(aboutAction, SIGNAL(triggered()), this, SLOT(onAbout()));
 
     if(ConfigManage::instance().loaded)
     {    auto& config = ConfigManage::instance().client_cfg;
