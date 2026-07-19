@@ -114,9 +114,6 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     statsTimer = new QTimer(this);
     connect(statsTimer, &QTimer::timeout, this, &MainWindow::updateStats);
     statsTimer->start(1000);
-
-    durationTimer = new QTimer(this);
-    connect(durationTimer, &QTimer::timeout, this, &MainWindow::updateDuration);
 }
 
 MainWindow::~MainWindow()
@@ -169,6 +166,8 @@ void MainWindow::updateStats()
     ui->TOTAL_LABEL->setText(QString("UP:%1  DN:%2").arg(formatTotal(total_up), formatTotal(total_down)));
 
     ui->SESSIONS_LABEL->setText(QString::number(ProxyStats::instance().sessionCount()));
+
+    updateDuration();
 }
 
 void MainWindow::onConnect()
@@ -189,13 +188,11 @@ void MainWindow::onConnect()
 
     server.start_accept();
     connectTime_ = std::chrono::steady_clock::now();
-    durationTimer->start(1000);
 }
 
 void MainWindow::onDisconnect()
 {
     server.stop_accept();
-    durationTimer->stop();
     ui->CONNECT_BUTTON->setEnabled(true);
     ui->DISCONNECT_BUTTON->setEnabled(false);
     ui->CONNECTION_STATUS->setText("DISCONNECTED");

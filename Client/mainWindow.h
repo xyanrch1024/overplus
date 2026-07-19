@@ -41,7 +41,6 @@ private:
     QSystemTrayIcon* trayIcon;
     QMenu* trayMenu;
     QTimer* statsTimer;
-    QTimer* durationTimer;
     std::chrono::steady_clock::time_point connectTime_;
 };
 #endif // MAINWINDOW_H
