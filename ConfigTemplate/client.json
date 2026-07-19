@@ -5,5 +5,7 @@
   "remote_addr": "1.2.3.4",
   "remote_port": "443",
   "user_name":"user1",
-  "password": "password1"
+  "password": "password1",
+  "udp_enabled": true,
+  "dtls_port": "8443"
 }

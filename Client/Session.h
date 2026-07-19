@@ -11,6 +11,9 @@
 #include <memory>
 #include <vector>
 using boost::asio::ip::tcp;
+
+class UdpRelay;
+
 class Session : public std::enable_shared_from_this<Session>
     , private boost::noncopyable {
     enum State {
@@ -35,8 +38,12 @@ public:
     void destroy();
     void http_connect_handshake(const std::string& initial);
     void write_http_connect_response();
+    void do_handle_socks5_udp_associate();
+    void do_read_control();
 
 private:
+    void on_udp_data_to_server(const std::string& frame);
+
     static constexpr size_t MAX_BUFF_SIZE = 32 * 1024;
     boost::asio::io_context& context_;
     tcp::socket in_socket;
@@ -56,4 +63,5 @@ private:
     std::atomic<bool> destroyed_{false};
     boost::asio::ssl::context& ssl_ctx;
     boost::asio::ssl::stream<boost::asio::ip::tcp::socket> out_socket;
+    std::shared_ptr<UdpRelay> udp_relay_;
 };

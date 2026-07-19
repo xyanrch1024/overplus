@@ -44,6 +44,9 @@ Service::Service()
         do_accept();
     }
 
+    if (config_manage.server_cfg.dtls_enabled) {
+        start_dtls_listener();
+    }
 }
 void Service::do_websocket_accept()
 {
@@ -152,4 +155,21 @@ void Service::start_dns_cleanup_timer() {
         DnsCacheManager::instance().cleanup_expired();
         start_dns_cleanup_timer();
     });
+}
+
+void Service::start_dtls_listener() {
+    auto& cfg = ConfigManage::instance().server_cfg;
+    if (cfg.dtls_port.empty()) {
+        ERROR_LOG << "DTLS enabled but dtls_port not configured";
+        return;
+    }
+
+    dtls_listener_ = std::make_unique<DtlsListener>(
+        context_pool.get_io_context(),
+        cfg.certificate_chain,
+        cfg.server_private_key,
+        cfg.local_addr,
+        cfg.dtls_port);
+    dtls_listener_->start();
+    NOTICE_LOG << "DTLS listener started on port " << cfg.dtls_port;
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include "TlsSession.h"
 #include "WebsocketSession.h"
+#include "DtlsListener.h"
 #include <Shared/ConfigManage.h>
 #include <Shared/DnsCache.h>
 #include <Shared/IoContextPool.h>
@@ -25,6 +26,7 @@ private:
     void do_websocket_accept();
     void load_server_certificate(boost::asio::ssl::context& ctx);
     void start_dns_cleanup_timer();
+    void start_dtls_listener();
 
 private:
     IoContextPool context_pool;
@@ -34,6 +36,7 @@ private:
     boost::asio::ip::tcp::acceptor acceptor_;
     boost::asio::ssl::context ssl_context_;
     boost::asio::steady_timer dns_cleanup_timer_;
+    std::unique_ptr<DtlsListener> dtls_listener_;
 public: 
     std::shared_ptr<TlsSession> new_connection_;
     std::shared_ptr<WebsocketSession> websocket_connection_;

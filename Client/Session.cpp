@@ -1,8 +1,10 @@
 
 #include "Session.h"
+#include "UdpRelay.h"
 #include "Shared/ConfigManage.h"
 #include "Shared/Log.h"
 #include "Shared/ProxyStats.h"
+#include <Protocol/UdpFrame.h>
 #include <Protocol/VProtocal/VRequest.h>
 #include <Protocol/socks5/socks5.h>
 #include <boost/asio/buffer.hpp>
@@ -99,7 +101,23 @@ void Session::read_socks5_request()
                 NOTICE_LOG<<"Receive socks5 message "<<socks5_req;
                 if(socks5_req.cmd == Request::UDP_ASSOCIATE)
                 {
-                  // do_handle_socks_udp_associate();
+                    auto& cfg = ConfigManage::instance().client_cfg;
+                    if (!cfg.udp_enabled) {
+                        ERROR_LOG << "UDP ASSOCIATE rejected: UDP proxy disabled in config";
+                        Reply reply;
+                        reply.version = 0x05;
+                        reply.reserved = 0x00;
+                        reply.addrtype = ADDRTYPE::V4;
+                        reply.repResult = 0x02; // connection not allowed by ruleset
+                        reply.realRemoteIP = INADDR_ANY;
+                        reply.realRemotePort = 0;
+                        message_buf.clear();
+                        reply.stream(message_buf);
+                        boost::asio::write(in_socket, boost::asio::buffer(message_buf));
+                        destroy();
+                        return;
+                    }
+                    do_handle_socks5_udp_associate();
                 }
                 else
                 {
@@ -193,7 +211,7 @@ void Session::write_socks5_response()
         reply.addrtype = ADDRTYPE::V4;
         reply.repResult = 0x00;
         reply.realRemoteIP = out_socket.lowest_layer().remote_endpoint().address().to_v4().to_uint();
-        reply.realRemotePort = htons(out_socket.lowest_layer().remote_endpoint().port());
+        reply.realRemotePort = out_socket.lowest_layer().remote_endpoint().port();
         message_buf.clear();
         reply.stream(message_buf);
     }
@@ -338,5 +356,84 @@ void Session::destroy()
     if (out_socket.lowest_layer().is_open()) {
         out_socket.lowest_layer().shutdown(tcp::socket::shutdown_both, ec);
         out_socket.lowest_layer().close(ec);
+    }
+
+    if (udp_relay_) {
+        udp_relay_->stop();
+        udp_relay_.reset();
+    }
+}
+
+void Session::do_handle_socks5_udp_associate()
+{
+    auto self(shared_from_this());
+
+    auto& config = ConfigManage::instance().client_cfg;
+    uint16_t dtls_port = static_cast<uint16_t>(
+        std::stoi(config.dtls_port.empty() ? config.remote_port : config.dtls_port));
+
+    udp_relay_ = std::make_shared<UdpRelay>(context_,
+        config.remote_addr, dtls_port, config.text_password);
+
+    uint16_t local_port = 0;
+    if (!udp_relay_->start(local_port)) {
+        ERROR_LOG << "failed to start UDP relay";
+        destroy();
+        return;
+    }
+
+    message_buf.clear();
+    {
+        Reply reply;
+        reply.version = 0x05;
+        reply.reserved = 0x00;
+        reply.addrtype = ADDRTYPE::V4;
+        reply.repResult = 0x00;
+        reply.realRemoteIP = INADDR_LOOPBACK;
+        reply.realRemotePort = local_port;
+        reply.stream(message_buf);
+    }
+
+    boost::asio::async_write(in_socket, boost::asio::buffer(message_buf),
+        [this, self, local_port](boost::system::error_code ec, std::size_t) {
+            if (ec) {
+                ERROR_LOG << "SOCKS5 UDP ASSOCIATE response write failed: " << ec.message();
+                destroy();
+                return;
+            }
+            NOTICE_LOG << "SOCKS5 UDP ASSOCIATE ready, local port " << local_port;
+            do_read_control();
+        });
+}
+
+void Session::do_read_control()
+{
+    auto self(shared_from_this());
+    char trash[128];
+    in_socket.async_read_some(boost::asio::buffer(trash),
+        [this, self](boost::system::error_code ec, std::size_t) {
+            if (ec) {
+                DEBUG_LOG << "UDP ASSOCIATE TCP control closed: " << ec.message();
+                destroy();
+                return;
+            }
+            do_read_control();
+        });
+}
+
+void Session::on_udp_data_to_server(const std::string& frame)
+{
+    if (destroyed_) return;
+
+    DEBUG_LOG << "UDP session --> server: " << frame.size() << " bytes";
+    auto self(shared_from_this());
+
+    if (out_socket.lowest_layer().is_open()) {
+        boost::asio::async_write(out_socket, boost::asio::buffer(frame),
+            [this, self](boost::system::error_code ec, std::size_t) {
+                if (ec) {
+                    DEBUG_LOG << "UDP relay: write to server failed: " << ec.message();
+                }
+            });
     }
 }

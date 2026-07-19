@@ -69,6 +69,8 @@ void ClientConfig::populate(boost::property_tree::ptree& tree)
     user_name = tree.get("user_name", std::string());
     text_password = tree.get("password", std::string());
     password = SHA224(text_password);
+    udp_enabled = tree.get("udp_enabled", false);
+    dtls_port = tree.get("dtls_port", std::string());
 }
 void ClientConfig::setPassword(std::string&psswd)
 {
@@ -101,7 +103,9 @@ void ServerConfig::populate(boost::property_tree::ptree& tree)
 
     certificate_chain = tree.get("ssl.cert", std::string());
     server_private_key = tree.get("ssl.key", std::string());
-    websocketEnabled = tree.get("websocketEnabled",false);
+    websocketEnabled = tree.get("websocketEnabled", false);
+    dtls_enabled = tree.get("dtls_enabled", false);
+    dtls_port = tree.get("dtls_port", std::string());
     dns_cache_ttl = tree.get("dns_cache_ttl", static_cast<int>(600));
     dns_cleanup_interval = tree.get("dns_cleanup_interval", static_cast<int>(600));
     thread_count = static_cast<size_t>(tree.get("thread_count", 0));

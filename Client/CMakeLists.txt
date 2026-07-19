@@ -14,6 +14,7 @@ if (WIN32)
             Server.h
             Server.cpp
             Session.cpp
+            UdpRelay.cpp
             mainwindow.cpp
             mainwindow.h
             mainwindow.ui
@@ -33,6 +34,7 @@ else ()
             Server.h
             Server.cpp
             Session.cpp
+            UdpRelay.cpp
             )
     add_executable(overplus_client CliMain.cpp ${SRCS})
     target_link_libraries(overplus_client Threads::Threads shared proto OpenSSL::SSL

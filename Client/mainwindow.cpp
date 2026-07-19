@@ -106,6 +106,9 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
          ui->HOST_NAME->setText(QString::fromStdString(config.remote_addr));
          ui->HOST_PORT->setText(QString::fromStdString(config.remote_port));
          ui->HOST_PASSWD->setText(QString::fromStdString(config.text_password));
+         ui->LOCAL_PORT->setText(QString::fromStdString(config.local_port.empty() ? "1080" : config.local_port));
+         ui->DTLS_PORT->setText(QString::fromStdString(config.dtls_port.empty() ? "8443" : config.dtls_port));
+         ui->UDP_CHECKBOX->setChecked(config.udp_enabled);
     }
     statusBar()->showMessage(QString("Overplus %1").arg(OVERPLUS_VERSION_STR));
 
@@ -146,6 +149,9 @@ void MainWindow::autoSave()
     config.remote_addr = ui->HOST_NAME->text().toStdString();
     config.remote_port = ui->HOST_PORT->text().toStdString();
     config.setPassword(ui->HOST_PASSWD->text().toStdString());
+    config.local_port = ui->LOCAL_PORT->text().toStdString();
+    config.dtls_port = ui->DTLS_PORT->text().toStdString();
+    config.udp_enabled = ui->UDP_CHECKBOX->isChecked();
 
     boost::property_tree::ptree tree;
     tree.put("run_type", "client");
@@ -155,6 +161,8 @@ void MainWindow::autoSave()
     tree.put("remote_port", config.remote_port);
     tree.put("user_name", config.user_name);
     tree.put("password", config.text_password);
+    tree.put("udp_enabled", config.udp_enabled);
+    tree.put("dtls_port", config.dtls_port);
 
     try {
         boost::property_tree::write_json("client.json", tree);
@@ -188,10 +196,18 @@ void MainWindow::onConnect()
     auto& config = ConfigManage::instance().client_cfg;
     config.remote_addr = ui->HOST_NAME->text().toStdString();
     config.remote_port = ui->HOST_PORT->text().toStdString();
+    config.local_port = ui->LOCAL_PORT->text().toStdString();
+    config.dtls_port = ui->DTLS_PORT->text().toStdString();
+    config.udp_enabled = ui->UDP_CHECKBOX->isChecked();
 
     auto psswd = ui->HOST_PASSWD->text().toStdString();
     config.setPassword(psswd);
-    NOTICE_LOG<<"Read config from user input:"<<config.remote_addr<<":"<< config.remote_port;
+    NOTICE_LOG<<"Read config from user input:"<<config.remote_addr<<":"<< config.remote_port
+              <<" dtls:"<<config.dtls_port<<" udp:"<<config.udp_enabled;
+
+    ui->UDP_STATUS->setText(config.udp_enabled ? "Active" : "Disabled");
+    ui->UDP_STATUS->setStyleSheet(config.udp_enabled ?
+        "color: green; font-weight: bold;" : "color: gray; font-weight: bold;");
 
     server.start_accept();
     connectTime_ = std::chrono::steady_clock::now();
@@ -204,6 +220,8 @@ void MainWindow::onDisconnect()
     ui->DISCONNECT_BUTTON->setEnabled(false);
     ui->CONNECTION_STATUS->setText("DISCONNECTED");
     ui->CONNECTION_STATUS->setStyleSheet("color: red; font-weight: bold;");
+    ui->UDP_STATUS->setText("--");
+    ui->UDP_STATUS->setStyleSheet("color: gray; font-weight: bold;");
     ui->DURATION_LABEL->setText("--");
     trayIcon->setIcon(createTrayIcon(QColor(180, 0, 0)));
 }

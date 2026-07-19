@@ -33,7 +33,11 @@ struct ServerConfig {
     std::string server_private_key;
     //
     //websocket
-    bool websocketEnabled;
+    bool websocketEnabled = false;
+    //
+    // dtls
+    bool dtls_enabled = false;
+    std::string dtls_port;
     //
     time_t dns_cache_ttl = 600;
     time_t dns_cleanup_interval = 600;
@@ -50,7 +54,9 @@ struct ClientConfig {
      "remote_addr": "1.2.3.4",
      "remote_port": 443,
      "user_name":"user1",
-     "password": "password1"
+     "password": "password1",
+     "udp_enabled": true,
+     "dtls_port": "8443"
 
     #NOTICE DEBUG ERROR
     "log_level": "NOTICE",
@@ -63,6 +69,8 @@ struct ClientConfig {
     std::string password;
     std::string user_name;
     std::string text_password;
+    bool udp_enabled = false;
+    std::string dtls_port;
 
     void populate(boost::property_tree::ptree&);
     void setPassword(std::string&psswd);

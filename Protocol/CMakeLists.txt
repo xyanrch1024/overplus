@@ -5,6 +5,7 @@ set(proto_SRCS
         trojan/UDPPacket.cpp
         VProtocal/VRequest.cpp
         http/http.cpp
+        UdpFrame.cpp
         )
 
 add_library(proto ${proto_SRCS})
