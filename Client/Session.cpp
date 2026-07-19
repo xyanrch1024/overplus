@@ -321,6 +321,8 @@ boost::asio::ip::tcp::socket& Session::socket()
 }
 void Session::destroy()
 {
+    if (destroyed_.exchange(true))
+        return;
     ProxyStats::instance().sessionDestroyed();
     NOTICE_LOG << "session destroyed";
     // Log::log_with_endpoint(in_endpoint, "disconnected, " + to_string(recv_len) + " bytes received, " + to_string(sent_len) + " bytes sent, lasted for " + to_string(time(nullptr) - start_time) + " seconds", Log::INFO);
