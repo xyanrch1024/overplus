@@ -42,6 +42,9 @@ bool UdpRelay::start(uint16_t& local_port)
         });
 
     do_receive_local();
+    NOTICE_LOG << "UDP relay started, local socket bound to "
+               << local_socket_.local_endpoint().address().to_string()
+               << ":" << local_socket_.local_endpoint().port();
     return true;
 }
 
@@ -119,7 +122,14 @@ void UdpRelay::do_receive_local()
     local_socket_.async_receive_from(
         boost::asio::buffer(recv_buf_), sender_ep_,
         [this](boost::system::error_code ec, std::size_t len) {
-            if (ec || !running_) return;
+            if (ec) {
+                NOTICE_LOG << "UDP local recv error: " << ec.message() << " running=" << running_;
+                return;
+            }
+            if (!running_) {
+                NOTICE_LOG << "UDP local recv: not running, discarding " << len;
+                return;
+            }
 
             NOTICE_LOG << "UDP relay --> server: " << len << " bytes from "
                       << sender_ep_.address().to_string() << ":" << sender_ep_.port();
