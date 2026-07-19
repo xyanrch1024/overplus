@@ -76,6 +76,7 @@ MainWindow::~MainWindow()
      ui->CONNECT_BUTTON->setEnabled(false);
      ui->DISCONNECT_BUTTON->setEnabled(true);
     ui->CONNECTION_STATUS->setText("CONNECTED");
+    ui->CONNECTION_STATUS->setStyleSheet("color: green; font-weight: bold;");
     trayIcon->setIcon(createTrayIcon(QColor(0, 180, 0)));
 
     auto& config = ConfigManage::instance().client_cfg;
@@ -98,8 +99,9 @@ MainWindow::~MainWindow()
      server.stop_accept();
       ui->CONNECT_BUTTON->setEnabled(true);
       ui->DISCONNECT_BUTTON->setEnabled(false);
-      ui->CONNECTION_STATUS->setText("DISCONNECTED");
-      trayIcon->setIcon(createTrayIcon(QColor(180, 0, 0)));
+       ui->CONNECTION_STATUS->setText("DISCONNECTED");
+       ui->CONNECTION_STATUS->setStyleSheet("color: red; font-weight: bold;");
+       trayIcon->setIcon(createTrayIcon(QColor(180, 0, 0)));
 
  }
  void MainWindow::onCheckBoxClick(){
