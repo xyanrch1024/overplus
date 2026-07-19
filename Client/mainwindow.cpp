@@ -8,11 +8,21 @@
 #include "Shared/ConfigManage.h"
 #include "Shared/Version.h"
 #include "Shared/Log.h"
+#include "Shared/TrafficStats.h"
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/asio.hpp>
 #include <chrono>
 #include <thread>
+
+static QString formatSpeed(uint64_t bytes_per_second) {
+    if (bytes_per_second < 1024)
+        return QString("%1 B/s").arg(bytes_per_second);
+    else if (bytes_per_second < 1024 * 1024)
+        return QString("%1 KB/s").arg(bytes_per_second / 1024.0, 0, 'f', 1);
+    else
+        return QString("%1 MB/s").arg(bytes_per_second / (1024.0 * 1024.0), 0, 'f', 2);
+}
 
 static QIcon createTrayIcon(const QColor& bg)
 {
@@ -78,6 +88,10 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
             }, Qt::QueuedConnection);
         }
     });
+
+    statsTimer = new QTimer(this);
+    connect(statsTimer, &QTimer::timeout, this, &MainWindow::updateStats);
+    statsTimer->start(1000);
 }
 
 MainWindow::~MainWindow()
@@ -88,6 +102,13 @@ MainWindow::~MainWindow()
 void MainWindow::appendLog(const QString& line)
 {
     ui->LOG_VIEW->appendPlainText(line);
+}
+
+void MainWindow::updateStats()
+{
+    auto [up, down] = TrafficStats::instance().getAndResetDelta();
+    ui->UPLOAD_LABEL->setText(formatSpeed(up));
+    ui->DOWNLOAD_LABEL->setText(formatSpeed(down));
 }
 
 void MainWindow::onConnect()

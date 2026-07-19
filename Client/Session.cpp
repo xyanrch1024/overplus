@@ -2,6 +2,7 @@
 #include "Session.h"
 #include "Shared/ConfigManage.h"
 #include "Shared/Log.h"
+#include "Shared/TrafficStats.h"
 #include <Protocol/VProtocal/VRequest.h>
 #include <Protocol/socks5/socks5.h>
 #include <boost/asio/buffer.hpp>
@@ -258,7 +259,7 @@ void Session::read_packet(int direction)
             [this, self](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
                     DEBUG_LOG << "--> upstream: " << std::to_string(length) << " bytes";
-
+                    TrafficStats::instance().addUpstreamDelta(length);
                     write_packet(1, length);
                 } else // if (ec != boost::asio::error::eof)
                 {
@@ -275,7 +276,7 @@ void Session::read_packet(int direction)
                 if (!ec) {
 
                     DEBUG_LOG << "<-- local: " << std::to_string(length) << " bytes";
-
+                    TrafficStats::instance().addDownstreamDelta(length);
                     write_packet(2, length);
                 } else // if (ec != boost::asio::error::eof)
                 {

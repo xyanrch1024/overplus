@@ -5,6 +5,7 @@
 #include <QSystemTrayIcon>
 #include <QCloseEvent>
 #include <QMenu>
+#include <QTimer>
 #include "Server.h"
 
 QT_BEGIN_NAMESPACE
@@ -31,10 +32,12 @@ public slots:
     void onShowWindow();
     void onQuit();
     void appendLog(const QString& line);
+    void updateStats();
 private:
     Ui::MainWindow *ui;
     Server& server;
     QSystemTrayIcon* trayIcon;
     QMenu* trayMenu;
+    QTimer* statsTimer;
 };
 #endif // MAINWINDOW_H
