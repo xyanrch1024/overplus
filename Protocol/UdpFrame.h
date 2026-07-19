@@ -8,13 +8,13 @@ public:
     static constexpr uint16_t MAGIC = 0x0D0A;
     static constexpr size_t HEADER_SIZE = 4; // Magic(2) + Length(2)
 
-    enum AddrType : uint8_t {
+    enum AddrType {
         IPv4   = 0x01,
         DOMAIN = 0x03,
         IPv6   = 0x06
     };
 
-    AddrType addr_type = IPv4;
+    uint8_t addr_type = IPv4;
     std::string address;
     uint16_t port = 0;
     std::string payload;

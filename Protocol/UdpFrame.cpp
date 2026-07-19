@@ -30,7 +30,7 @@ bool UdpFrame::parse(const string& data, size_t& frame_len) {
     if (remaining < 1)
         return false;
 
-    addr_type = static_cast<AddrType>(static_cast<uint8_t>(p[0]));
+    addr_type = static_cast<uint8_t>(p[0]);
     p++;
     remaining--;
 
