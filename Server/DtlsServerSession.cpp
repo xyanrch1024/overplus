@@ -171,9 +171,9 @@ void DtlsServerSession::try_read_app_data()
                     udp::endpoint ep(boost::asio::ip::address_v4(ip), frame.port);
                     do_send_to_target(ep, frame.payload);
                 } else if (frame.addr_type == UdpFrame::IPv6) {
-                    udp::endpoint ep(
-                        boost::asio::ip::address_v6::from_string(frame.address),
-                        frame.port);
+                    boost::asio::ip::address_v6::bytes_type bytes;
+                    std::memcpy(bytes.data(), frame.address.data(), 16);
+                    udp::endpoint ep(boost::asio::ip::address_v6(bytes), frame.port);
                     do_send_to_target(ep, frame.payload);
                 }
             } else {
