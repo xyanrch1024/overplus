@@ -21,9 +21,11 @@ public:
     }
 
     std::pair<uint64_t, uint64_t> getAndResetDelta() {
-        uint64_t up = delta_upstream_.exchange(0, std::memory_order_relaxed);
-        uint64_t down = delta_downstream_.exchange(0, std::memory_order_relaxed);
-        return {up, down};
+        uint64_t raw_up = delta_upstream_.exchange(0, std::memory_order_relaxed);
+        uint64_t raw_down = delta_downstream_.exchange(0, std::memory_order_relaxed);
+        smoothed_up_ = static_cast<uint64_t>(0.3 * raw_up + 0.7 * smoothed_up_);
+        smoothed_down_ = static_cast<uint64_t>(0.3 * raw_down + 0.7 * smoothed_down_);
+        return {smoothed_up_, smoothed_down_};
     }
 
     std::pair<uint64_t, uint64_t> getTotal() {
@@ -37,4 +39,6 @@ private:
     std::atomic<uint64_t> total_downstream_{0};
     std::atomic<uint64_t> delta_upstream_{0};
     std::atomic<uint64_t> delta_downstream_{0};
+    uint64_t smoothed_up_{0};
+    uint64_t smoothed_down_{0};
 };
