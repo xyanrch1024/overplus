@@ -3,6 +3,9 @@
 
 using std::string;
 
+const uint16_t UdpFrame::MAGIC = 0x0D0A;
+const uint16_t UdpFrame::HEADER_SIZE = 4;
+
 static void put_u16_be(string& dst, uint16_t val) {
     dst += static_cast<char>(val >> 8);
     dst += static_cast<char>(val & 0xFF);
@@ -36,13 +39,13 @@ bool UdpFrame::parse(const string& data, size_t& frame_len) {
 
     size_t addr_len = 0;
     switch (addr_type) {
-    case IPv4:
+    case ADDR_IPV4:
         if (remaining < 4 + 2) return false;
         address.assign(p, 4);
         port = get_u16_be(p + 4);
         addr_len = 4 + 2;
         break;
-    case DOMAIN:
+    case ADDR_DOMAIN:
         if (remaining < 1) return false;
         uint8_t dlen;
         dlen = static_cast<uint8_t>(p[0]);
@@ -53,7 +56,7 @@ bool UdpFrame::parse(const string& data, size_t& frame_len) {
         port = get_u16_be(p + dlen);
         addr_len = 1 + dlen + 2;
         break;
-    case IPv6:
+    case ADDR_IPV6:
         if (remaining < 16 + 2) return false;
         address.assign(p, 16);
         port = get_u16_be(p + 16);
@@ -84,13 +87,13 @@ string UdpFrame::generate(const boost::asio::ip::udp::endpoint& ep,
     string addr_part;
     auto addr = ep.address();
     if (addr.is_v4()) {
-        addr_part += static_cast<char>(IPv4);
+        addr_part += static_cast<char>(ADDR_IPV4);
         auto bytes = addr.to_v4().to_bytes();
         addr_part.append(reinterpret_cast<const char*>(bytes.data()), 4);
         addr_part += static_cast<char>(ep.port() >> 8);
         addr_part += static_cast<char>(ep.port() & 0xFF);
     } else {
-        addr_part += static_cast<char>(IPv6);
+        addr_part += static_cast<char>(ADDR_IPV6);
         auto bytes = addr.to_v6().to_bytes();
         addr_part.append(reinterpret_cast<const char*>(bytes.data()), 16);
         addr_part += static_cast<char>(ep.port() >> 8);
@@ -114,7 +117,7 @@ string UdpFrame::generate(const string& domain,
     uint16_t total_len = HEADER_SIZE + 1 + 1 + domain.size() + 2 + payload.size();
     put_u16_be(frame, MAGIC);
     put_u16_be(frame, total_len);
-    frame += static_cast<char>(DOMAIN);
+    frame += static_cast<char>(ADDR_DOMAIN);
     frame += static_cast<char>(domain.size());
     frame += domain;
     put_u16_be(frame, port);
@@ -124,15 +127,15 @@ string UdpFrame::generate(const string& domain,
 
 string UdpFrame::addr_str() const {
     switch (addr_type) {
-    case IPv4: {
+    case ADDR_IPV4: {
         const auto* p = reinterpret_cast<const uint8_t*>(address.data());
         return std::to_string(p[0]) + "." + std::to_string(p[1]) + "."
              + std::to_string(p[2]) + "." + std::to_string(p[3])
              + ":" + std::to_string(port);
     }
-    case DOMAIN:
+    case ADDR_DOMAIN:
         return address + ":" + std::to_string(port);
-    case IPv6:
+    case ADDR_IPV6:
         return "[IPv6]:" + std::to_string(port);
     default:
         return "unknown";

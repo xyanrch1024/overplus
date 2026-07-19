@@ -1,23 +1,30 @@
 #pragma once
-#include <boost/asio.hpp>
 #include <cstdint>
 #include <string>
 
+#ifdef _WIN32
+#include <boost/asio/ip/udp.hpp>
+#else
+#include <boost/asio.hpp>
+#endif
+
 class UdpFrame {
 public:
-    static constexpr uint16_t MAGIC = 0x0D0A;
-    static constexpr size_t HEADER_SIZE = 4; // Magic(2) + Length(2)
-
     enum AddrType {
-        IPv4   = 0x01,
-        DOMAIN = 0x03,
-        IPv6   = 0x06
+        ADDR_IPV4   = 0x01,
+        ADDR_DOMAIN = 0x03,
+        ADDR_IPV6   = 0x06
     };
 
-    uint8_t addr_type = IPv4;
+    static const uint16_t MAGIC;
+    static const uint16_t HEADER_SIZE;
+
+    uint8_t addr_type;
     std::string address;
-    uint16_t port = 0;
+    uint16_t port;
     std::string payload;
+
+    UdpFrame() : addr_type(ADDR_IPV4), port(0) {}
 
     bool parse(const std::string& data, size_t& frame_len);
 

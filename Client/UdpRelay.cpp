@@ -91,18 +91,18 @@ void UdpRelay::on_dtls_data(const char* data, size_t len)
     pkt += char(0x00);
     pkt += char(0x00);
 
-    if (frame.addr_type == UdpFrame::IPv4) {
+    if (frame.addr_type == UdpFrame::ADDR_IPV4) {
         pkt += char(0x01);
         pkt += frame.address;
         pkt += char(frame.port >> 8);
         pkt += char(frame.port & 0xFF);
-    } else if (frame.addr_type == UdpFrame::DOMAIN) {
+    } else if (frame.addr_type == UdpFrame::ADDR_DOMAIN) {
         pkt += char(0x03);
         pkt += char(frame.address.size());
         pkt += frame.address;
         pkt += char(frame.port >> 8);
         pkt += char(frame.port & 0xFF);
-    } else if (frame.addr_type == UdpFrame::IPv6) {
+    } else if (frame.addr_type == UdpFrame::ADDR_IPV6) {
         pkt += char(0x04);
         pkt += frame.address;
         pkt += char(frame.port >> 8);

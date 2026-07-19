@@ -160,9 +160,9 @@ void DtlsServerSession::try_read_app_data()
                 DEBUG_LOG << "DTLS recv UDP frame: " << frame.addr_str()
                           << " payload=" << frame.payload.size();
 
-                if (frame.addr_type == UdpFrame::DOMAIN) {
+                if (frame.addr_type == UdpFrame::ADDR_DOMAIN) {
                     do_resolve_and_send(frame.address, frame.port, frame.payload);
-                } else if (frame.addr_type == UdpFrame::IPv4) {
+                } else if (frame.addr_type == UdpFrame::ADDR_IPV4) {
                     const auto* p = reinterpret_cast<const uint8_t*>(frame.address.data());
                     uint32_t ip = (static_cast<uint32_t>(p[0]) << 24)
                                 | (static_cast<uint32_t>(p[1]) << 16)
@@ -170,7 +170,7 @@ void DtlsServerSession::try_read_app_data()
                                 |  static_cast<uint32_t>(p[3]);
                     udp::endpoint ep(boost::asio::ip::address_v4(ip), frame.port);
                     do_send_to_target(ep, frame.payload);
-                } else if (frame.addr_type == UdpFrame::IPv6) {
+                } else if (frame.addr_type == UdpFrame::ADDR_IPV6) {
                     boost::asio::ip::address_v6::bytes_type bytes;
                     std::memcpy(bytes.data(), frame.address.data(), 16);
                     udp::endpoint ep(boost::asio::ip::address_v6(bytes), frame.port);
