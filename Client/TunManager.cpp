@@ -5,17 +5,15 @@
 #include <iphlpapi.h>
 #include <netioapi.h>
 #include <shellapi.h>
+#include <ws2tcpip.h>
+#include <string>
 
 #pragma comment(lib, "iphlpapi.lib")
+#pragma comment(lib, "ws2_32.lib")
 
-TunManager::TunManager()
-{
-}
+TunManager::TunManager() {}
 
-TunManager::~TunManager()
-{
-    stop();
-}
+TunManager::~TunManager() { stop(); }
 
 void TunManager::log(const std::string& msg)
 {
@@ -23,122 +21,106 @@ void TunManager::log(const std::string& msg)
     if (logCb_) logCb_(msg);
 }
 
-int TunManager::findInterfaceIndex(const std::string& name)
+bool TunManager::findTunAdapter()
 {
-    std::wstring wname(name.begin(), name.end());
-    NET_LUID luid;
-    if (ConvertInterfaceAliasToLuid(wname.c_str(), &luid) != NO_ERROR)
-        return 0;
+    ULONG bufLen = 15000;
+    PIP_ADAPTER_ADDRESSES adapters = (PIP_ADAPTER_ADDRESSES)malloc(bufLen);
+    if (!adapters) return false;
 
-    NET_IFINDEX idx = 0;
-    if (ConvertInterfaceLuidToIndex(&luid, &idx) != NO_ERROR)
-        return 0;
+    DWORD ret = GetAdaptersAddresses(AF_INET, GAA_FLAG_INCLUDE_PREFIX,
+                                     NULL, adapters, &bufLen);
+    if (ret != NO_ERROR) {
+        free(adapters);
+        return false;
+    }
 
-    return static_cast<int>(idx);
-}
+    for (PIP_ADAPTER_ADDRESSES aa = adapters; aa; aa = aa->Next) {
+        std::string desc = aa->AdapterName;
+        if (aa->Description) {
+            wchar_t* d = aa->Description;
+            std::string tmp(d, d + wcslen(d));
+            desc = tmp;
+        }
 
-int TunManager::findTunInterfaceIndex()
-{
-    std::string output;
-    std::string cmd = "(Get-NetAdapter -Name '*tun2socks*' -ErrorAction SilentlyContinue).InterfaceIndex";
-    if (!executePowerShell(cmd, output)) return 0;
+        if (desc.find("tun2socks") == std::string::npos &&
+            desc.find("Tun2socks") == std::string::npos &&
+            desc.find("wintun") == std::string::npos)
+            continue;
 
-    size_t start = output.find_first_not_of(" \t\r\n");
-    if (start == std::string::npos) return 0;
-    size_t end = output.find_last_not_of(" \t\r\n");
-    std::string token = output.substr(start, end - start + 1);
-    try { return std::stoi(token); }
-    catch (...) { return 0; }
-}
+        if (aa->FirstUnicastAddress &&
+            aa->FirstUnicastAddress->Address.lpSockaddr &&
+            aa->FirstUnicastAddress->Address.lpSockaddr->sa_family == AF_INET) {
 
-std::string TunManager::findTunIPAddress()
-{
-    if (tun_if_index_ <= 0) return "";
+            sockaddr_in* sa = (sockaddr_in*)aa->FirstUnicastAddress->Address.lpSockaddr;
+            char ip[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &sa->sin_addr, ip, sizeof(ip));
 
-    std::string output;
-    std::string cmd = "(Get-NetIPAddress -InterfaceIndex " + std::to_string(tun_if_index_) +
-                      " -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress";
-    if (!executePowerShell(cmd, output)) return "";
+            tun_if_index_ = aa->IfIndex;
+            tun_addr_ = ip;
 
-    size_t start = output.find_first_not_of(" \t\r\n");
-    if (start == std::string::npos) return "";
-    size_t end = output.find_first_of(" \t\r\n", start);
-    if (end == std::string::npos) end = output.size();
-    return output.substr(start, end - start);
+            log("TUN adapter found: \"" + desc + "\" index=" +
+                std::to_string(tun_if_index_) + " ip=" + tun_addr_);
+            free(adapters);
+            return true;
+        }
+    }
+
+    free(adapters);
+    return false;
 }
 
 bool TunManager::findPhysicalGateway()
 {
-    std::string output;
-    std::string cmd = "(Get-NetRoute -InterfaceAlias '" + physical_nic_ +
-                      "' -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue).NextHop";
-    if (!executePowerShell(cmd, output)) return false;
+    ULONG bufLen = 15000;
+    PIP_ADAPTER_ADDRESSES adapters = (PIP_ADAPTER_ADDRESSES)malloc(bufLen);
+    if (!adapters) return false;
 
-    size_t start = output.find_first_not_of(" \t\r\n");
-    size_t end = output.find_last_not_of(" \t\r\n");
-    if (start == std::string::npos) return false;
-    phys_gateway_ = output.substr(start, end - start + 1);
-    log("physical gateway = " + phys_gateway_);
-    return !phys_gateway_.empty();
-}
-
-bool TunManager::executePowerShell(const std::string& cmd, std::string& output)
-{
-    std::string full = "powershell -NoProfile -Command \"" + cmd + "\"";
-    FILE* pipe = _popen(full.c_str(), "r");
-    if (!pipe) return false;
-
-    char buf[512];
-    while (fgets(buf, sizeof(buf), pipe))
-        output += buf;
-    _pclose(pipe);
-    return true;
-}
-
-bool TunManager::executePowerShellElevated(const std::string& ps1Content)
-{
-    char tmpPath[MAX_PATH];
-    GetTempPathA(MAX_PATH, tmpPath);
-    std::string scriptPath = std::string(tmpPath) + "overplus_routes.ps1";
-
-    FILE* f = fopen(scriptPath.c_str(), "w");
-    if (!f) {
-        log("ERROR: cannot write temp script " + scriptPath);
+    DWORD ret = GetAdaptersAddresses(AF_INET, GAA_FLAG_INCLUDE_PREFIX,
+                                     NULL, adapters, &bufLen);
+    if (ret != NO_ERROR) {
+        free(adapters);
         return false;
     }
-    fwrite(ps1Content.c_str(), 1, ps1Content.size(), f);
-    fclose(f);
 
-    std::string params = "-ExecutionPolicy Bypass -File \"" + scriptPath + "\"";
-
-    SHELLEXECUTEINFOA sei = {};
-    sei.cbSize = sizeof(sei);
-    sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
-    sei.lpVerb = "runas";
-    sei.lpFile = "powershell.exe";
-    sei.lpParameters = params.c_str();
-    sei.nShow = SW_HIDE;
-
-    log("executing elevated PowerShell script");
-
-    if (!ShellExecuteExA(&sei)) {
-        DWORD err = GetLastError();
-        if (err == ERROR_CANCELLED) {
-            log("ERROR: UAC elevation denied for route config");
-        } else {
-            log("ERROR: ShellExecuteEx for routes failed, code=" + std::to_string(err));
+    for (PIP_ADAPTER_ADDRESSES aa = adapters; aa; aa = aa->Next) {
+        std::string name;
+        if (aa->FriendlyName) {
+            name = std::string(aa->FriendlyName,
+                               aa->FriendlyName + wcslen(aa->FriendlyName));
         }
-        DeleteFileA(scriptPath.c_str());
-        return false;
+        if (name != physical_nic_) continue;
+
+        phys_if_index_ = aa->IfIndex;
+
+        ULONG routeLen = 15000;
+        PMIB_IPFORWARDTABLE routes = (PMIB_IPFORWARDTABLE)malloc(routeLen);
+        if (!routes) break;
+
+        ret = GetIpForwardTable(routes, &routeLen, TRUE);
+        if (ret == NO_ERROR) {
+            for (DWORD i = 0; i < routes->dwNumEntries; i++) {
+                auto& r = routes->table[i];
+                if (r.dwForwardIfIndex == phys_if_index_ &&
+                    r.dwForwardDest == 0 &&
+                    r.dwForwardMask == 0) {
+                    sockaddr_in sa;
+                    sa.sin_addr.S_un.S_addr = r.dwForwardNextHop;
+                    char ip[INET_ADDRSTRLEN];
+                    inet_ntop(AF_INET, &sa.sin_addr, ip, sizeof(ip));
+                    phys_gateway_ = ip;
+                    log("physical gateway = " + phys_gateway_);
+                    free(routes);
+                    free(adapters);
+                    return true;
+                }
+            }
+        }
+        free(routes);
+        break;
     }
 
-    if (sei.hProcess) {
-        WaitForSingleObject(sei.hProcess, 15000);
-        CloseHandle(sei.hProcess);
-    }
-
-    DeleteFileA(scriptPath.c_str());
-    return true;
+    free(adapters);
+    return false;
 }
 
 bool TunManager::start(const std::string& tun2socks_path,
@@ -157,13 +139,6 @@ bool TunManager::start(const std::string& tun2socks_path,
     tun_dns_ = tun_dns.empty() ? "8.8.8.8" : tun_dns;
     server_addr_ = server_addr;
 
-    phys_if_index_ = findInterfaceIndex(physical_nic_);
-    if (phys_if_index_ == 0) {
-        log("ERROR: cannot find physical NIC: " + physical_nic_);
-        return false;
-    }
-    log("physical NIC " + physical_nic_ + " index=" + std::to_string(phys_if_index_));
-
     if (!findPhysicalGateway()) {
         log("ERROR: cannot find gateway for NIC: " + physical_nic_);
         return false;
@@ -171,7 +146,6 @@ bool TunManager::start(const std::string& tun2socks_path,
 
     std::string args = "--device wintun --proxy socks5://127.0.0.1:" + proxy_port_ +
                        " --interface " + physical_nic_ + " --loglevel info";
-    std::string params = "\"" + tun2socks_path_ + "\" " + args;
 
     SHELLEXECUTEINFOA sei = {};
     sei.cbSize = sizeof(sei);
@@ -195,6 +169,7 @@ bool TunManager::start(const std::string& tun2socks_path,
 
     hProcess_ = sei.hProcess;
     running_ = true;
+    retryCount_ = 0;
 
     auto* poll = new QTimer();
     QObject::connect(poll, &QTimer::timeout, [this, poll]() {
@@ -210,9 +185,7 @@ bool TunManager::start(const std::string& tun2socks_path,
             poll->stop();
             poll->deleteLater();
             pollTimer_ = nullptr;
-            if (running_) {
-                running_ = false;
-            }
+            running_ = false;
         }
     });
     pollTimer_ = poll;
@@ -220,22 +193,21 @@ bool TunManager::start(const std::string& tun2socks_path,
 
     auto* timer = new QTimer();
     QObject::connect(timer, &QTimer::timeout, [this, timer]() {
-        tun_if_index_ = findTunInterfaceIndex();
-        if (tun_if_index_ > 0) {
-            tun_addr_ = findTunIPAddress();
+        retryCount_++;
+        if (findTunAdapter()) {
             timer->stop();
             timer->deleteLater();
             waitTimer_ = nullptr;
-            log("TUN interface found, index=" + std::to_string(tun_if_index_) + " ip=" + tun_addr_);
-            if (tun_addr_.empty()) {
-                log("ERROR: cannot detect TUN IP address");
-                stop();
-                return;
-            }
             if (!configureRoutes()) {
                 log("ERROR: failed to configure routes");
                 stop();
             }
+        } else if (retryCount_ >= 30) {
+            timer->stop();
+            timer->deleteLater();
+            waitTimer_ = nullptr;
+            log("ERROR: TUN adapter not found after 15s");
+            stop();
         }
     });
     waitTimer_ = timer;
@@ -279,32 +251,37 @@ void TunManager::stop()
 
 bool TunManager::configureRoutes()
 {
-    if (tun_if_index_ <= 0) return false;
+    if (tun_if_index_ <= 0 || tun_addr_.empty()) return false;
 
-    std::string proxy_server = server_addr_ + "/32";
+    bool ok = true;
 
-    std::string ps1;
-    ps1 += "New-NetRoute -DestinationPrefix '0.0.0.0/0' -NextHop '" + tun_addr_ +
-           "' -InterfaceIndex " + std::to_string(tun_if_index_) +
-           " -RouteMetric 2 -ErrorAction SilentlyContinue\n";
-    ps1 += "New-NetRoute -DestinationPrefix '" + proxy_server +
-           "' -NextHop '" + phys_gateway_ +
-           "' -InterfaceIndex " + std::to_string(phys_if_index_) +
-           " -RouteMetric 5 -ErrorAction SilentlyContinue\n";
-    ps1 += "Set-DnsClientServerAddress -InterfaceIndex " + std::to_string(tun_if_index_) +
-           " -ServerAddresses '" + tun_dns_ + "' -ErrorAction SilentlyContinue\n";
+    MIB_IPFORWARDROW row = {};
+    row.dwForwardDest = 0;
+    row.dwForwardMask = 0;
+    row.dwForwardNextHop = inet_addr(tun_addr_.c_str());
+    row.dwForwardIfIndex = tun_if_index_;
+    row.dwForwardMetric1 = 2;
 
-    log("configuring routes (elevated):");
-    log("  default 0.0.0.0/0 -> " + tun_addr_ + " via TUN#" + std::to_string(tun_if_index_));
-    log("  bypass " + proxy_server + " -> " + phys_gateway_ + " via NIC#" + std::to_string(phys_if_index_));
-    log("  DNS -> " + tun_dns_);
+    DWORD ret = CreateIpForwardEntry(&row);
+    log("add default route 0.0.0.0/0 -> " + tun_addr_ +
+        " (ifIndex=" + std::to_string(tun_if_index_) + ")" +
+        " ret=" + std::to_string(ret));
+    if (ret != NO_ERROR) ok = false;
 
-    bool ok = executePowerShellElevated(ps1);
-    if (ok) {
-        log("route configuration commands sent (elevated)");
-    } else {
-        log("ERROR: failed to execute route configuration");
-    }
+    sockaddr_in sa;
+    inet_pton(AF_INET, server_addr_.c_str(), &sa.sin_addr);
+    MIB_IPFORWARDROW bypass = {};
+    bypass.dwForwardDest = sa.sin_addr.S_un.S_addr;
+    bypass.dwForwardMask = 0xFFFFFFFF;
+    bypass.dwForwardNextHop = inet_addr(phys_gateway_.c_str());
+    bypass.dwForwardIfIndex = phys_if_index_;
+    bypass.dwForwardMetric1 = 5;
+
+    ret = CreateIpForwardEntry(&bypass);
+    log("add bypass route " + server_addr_ + "/32 -> " + phys_gateway_ +
+        " ret=" + std::to_string(ret));
+    if (ret != NO_ERROR) ok = false;
+
     return ok;
 }
 
@@ -312,16 +289,21 @@ void TunManager::cleanupRoutes()
 {
     if (tun_if_index_ <= 0) return;
 
-    std::string ps1;
-    ps1 += "Remove-NetRoute -DestinationPrefix '0.0.0.0/0' -InterfaceIndex " +
-           std::to_string(tun_if_index_) + " -Confirm:$false -ErrorAction SilentlyContinue\n";
-    ps1 += "Remove-NetRoute -DestinationPrefix '" + server_addr_ + "/32'" +
-           " -InterfaceIndex " + std::to_string(phys_if_index_) +
-           " -Confirm:$false -ErrorAction SilentlyContinue\n";
-    ps1 += "Set-DnsClientServerAddress -InterfaceIndex " + std::to_string(tun_if_index_) +
-           " -ResetServerAddresses -ErrorAction SilentlyContinue\n";
+    MIB_IPFORWARDROW row = {};
+    row.dwForwardDest = 0;
+    row.dwForwardMask = 0;
+    row.dwForwardNextHop = inet_addr(tun_addr_.c_str());
+    row.dwForwardIfIndex = tun_if_index_;
+    DeleteIpForwardEntry(&row);
 
-    log("cleaning up routes (elevated)");
-    executePowerShellElevated(ps1);
+    sockaddr_in sa;
+    inet_pton(AF_INET, server_addr_.c_str(), &sa.sin_addr);
+    MIB_IPFORWARDROW bypass = {};
+    bypass.dwForwardDest = sa.sin_addr.S_un.S_addr;
+    bypass.dwForwardMask = 0xFFFFFFFF;
+    bypass.dwForwardNextHop = inet_addr(phys_gateway_.c_str());
+    bypass.dwForwardIfIndex = phys_if_index_;
+    DeleteIpForwardEntry(&bypass);
+
     log("routes cleaned up");
 }

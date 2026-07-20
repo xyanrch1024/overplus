@@ -23,19 +23,16 @@ public:
     void log(const std::string& msg);
 
 private:
+    bool findTunAdapter();
+    bool findPhysicalGateway();
     bool configureRoutes();
     void cleanupRoutes();
-    int  findInterfaceIndex(const std::string& name);
-    int  findTunInterfaceIndex();
-    std::string findTunIPAddress();
-    bool findPhysicalGateway();
-    bool executePowerShell(const std::string& cmd, std::string& output);
-    bool executePowerShellElevated(const std::string& ps1Content);
 
     HANDLE hProcess_ = nullptr;
     void* waitTimer_ = nullptr;
     void* pollTimer_ = nullptr;
     bool running_ = false;
+    int retryCount_ = 0;
     std::function<void(const std::string&)> logCb_;
 
     std::string tun2socks_path_;
@@ -43,9 +40,9 @@ private:
     std::string physical_nic_;
     std::string tun_dns_;
     std::string server_addr_;
-    std::string tun_addr_;
 
-    int tun_if_index_ = 0;
-    int phys_if_index_ = 0;
+    NET_IFINDEX tun_if_index_ = 0;
+    NET_IFINDEX phys_if_index_ = 0;
+    std::string tun_addr_;
     std::string phys_gateway_;
 };
