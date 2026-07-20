@@ -3,14 +3,10 @@
 #include <functional>
 
 #ifdef _WIN32
-#include <QObject>
-#include <QProcess>
-#include <QTimer>
 
-class TunManager : public QObject {
-    Q_OBJECT
+class TunManager {
 public:
-    explicit TunManager(QObject* parent = nullptr);
+    TunManager();
     ~TunManager();
 
     bool start(const std::string& tun2socks_path,
@@ -24,11 +20,6 @@ public:
 
     void setLogCallback(std::function<void(const std::string&)> cb) { logCb_ = cb; }
 
-private slots:
-    void onProcessReadyReadStdout();
-    void onProcessReadyReadStderr();
-    void onProcessFinished(int exitCode);
-
 private:
     void log(const std::string& msg);
     bool configureRoutes();
@@ -38,8 +29,8 @@ private:
     bool findPhysicalGateway();
     bool executePowerShell(const std::string& cmd, std::string& output);
 
-    QProcess* process_ = nullptr;
-    QTimer*   waitTimer_ = nullptr;
+    void* process_ = nullptr;
+    void* waitTimer_ = nullptr;
     bool running_ = false;
     std::function<void(const std::string&)> logCb_;
 
@@ -53,6 +44,18 @@ private:
     int tun_if_index_ = 0;
     int phys_if_index_ = 0;
     std::string phys_gateway_;
+};
+
+#else
+
+class TunManager {
+public:
+    bool start(const std::string&, const std::string&,
+               const std::string&, const std::string&,
+               const std::string&) { return false; }
+    void stop() {}
+    bool isRunning() const { return false; }
+    void setLogCallback(std::function<void(const std::string&)>) {}
 };
 
 #endif

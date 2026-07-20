@@ -1,25 +1,51 @@
 #include "TunManager.h"
-#include "Shared/Log.h"
 
 #ifdef _WIN32
+
+#include "Shared/Log.h"
+#include <QProcess>
+#include <QTimer>
 
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
 #include <windows.h>
 #include <iphlpapi.h>
 #include <netioapi.h>
-#include <QCoreApplication>
 
 #pragma comment(lib, "iphlpapi.lib")
 
-TunManager::TunManager(QObject* parent)
-    : QObject(parent)
+static void slotStdout(TunManager* self, QProcess* proc)
+{
+    QByteArray data = proc->readAllStandardOutput();
+    std::string line(data.constData(), data.size());
+    self->log("[tun2socks] " + line);
+}
+
+static void slotStderr(TunManager* self, QProcess* proc)
+{
+    QByteArray data = proc->readAllStandardError();
+    std::string line(data.constData(), data.size());
+    self->log("[tun2socks] " + line);
+}
+
+static void slotFinished(TunManager* self, int exitCode)
+{
+    self->log("tun2socks exited with code " + std::to_string(exitCode));
+}
+
+TunManager::TunManager()
 {
 }
 
 TunManager::~TunManager()
 {
     stop();
+}
+
+void TunManager::log(const std::string& msg)
+{
+    NOTICE_LOG << "TunManager: " << msg;
+    if (logCb_) logCb_(msg);
 }
 
 int TunManager::findInterfaceIndex(const std::string& name)
@@ -58,12 +84,11 @@ bool TunManager::findPhysicalGateway()
                       "' -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue).NextHop";
     if (!executePowerShell(cmd, output)) return false;
 
-    // trim whitespace
     size_t start = output.find_first_not_of(" \t\r\n");
     size_t end = output.find_last_not_of(" \t\r\n");
     if (start == std::string::npos) return false;
     phys_gateway_ = output.substr(start, end - start + 1);
-    NOTICE_LOG << "TunManager: physical gateway = " << phys_gateway_;
+    log("physical gateway = " + phys_gateway_);
     return !phys_gateway_.empty();
 }
 
@@ -98,21 +123,25 @@ bool TunManager::start(const std::string& tun2socks_path,
 
     phys_if_index_ = findInterfaceIndex(physical_nic_);
     if (phys_if_index_ == 0) {
-        ERROR_LOG << "TunManager: cannot find physical NIC: " << physical_nic_;
+        log("ERROR: cannot find physical NIC: " + physical_nic_);
         return false;
     }
-    NOTICE_LOG << "TunManager: physical NIC " << physical_nic_ << " index=" << phys_if_index_;
+    log("physical NIC " + physical_nic_ + " index=" + std::to_string(phys_if_index_));
 
     if (!findPhysicalGateway()) {
-        ERROR_LOG << "TunManager: cannot find gateway for NIC: " << physical_nic_;
+        log("ERROR: cannot find gateway for NIC: " + physical_nic_);
         return false;
     }
 
-    process_ = new QProcess(this);
-    connect(process_, &QProcess::readyReadStandardOutput, this, &TunManager::onProcessReadyReadStdout);
-    connect(process_, &QProcess::readyReadStandardError, this, &TunManager::onProcessReadyReadStderr);
-    connect(process_, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-            this, &TunManager::onProcessFinished);
+    auto* proc = new QProcess();
+    QObject::connect(proc, &QProcess::readyReadStandardOutput,
+        [this, proc]() { slotStdout(this, proc); });
+    QObject::connect(proc, &QProcess::readyReadStandardError,
+        [this, proc]() { slotStderr(this, proc); });
+    QObject::connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+        [this](int ec) { slotFinished(this, ec); });
+
+    process_ = proc;
 
     QString exe = QString::fromStdString(tun2socks_path_);
     QStringList args;
@@ -121,33 +150,34 @@ bool TunManager::start(const std::string& tun2socks_path,
          << "--interface" << QString::fromStdString(physical_nic_)
          << "--loglevel" << "info";
 
-    NOTICE_LOG << "TunManager: starting " << exe.toStdString() << " " << args.join(" ").toStdString();
-    process_->start(exe, args);
+    log("starting " + exe.toStdString() + " " + args.join(" ").toStdString());
+    proc->start(exe, args);
 
-    if (!process_->waitForStarted(5000)) {
-        ERROR_LOG << "TunManager: failed to start tun2socks";
-        delete process_;
+    if (!proc->waitForStarted(5000)) {
+        log("ERROR: failed to start tun2socks");
+        delete proc;
         process_ = nullptr;
         return false;
     }
 
     running_ = true;
 
-    waitTimer_ = new QTimer(this);
-    connect(waitTimer_, &QTimer::timeout, this, [this]() {
+    auto* timer = new QTimer();
+    QObject::connect(timer, &QTimer::timeout, [this, timer]() {
         tun_if_index_ = findTunInterfaceIndex();
         if (tun_if_index_ > 0) {
-            waitTimer_->stop();
-            waitTimer_->deleteLater();
+            timer->stop();
+            timer->deleteLater();
             waitTimer_ = nullptr;
-            NOTICE_LOG << "TunManager: TUN interface found, index=" << tun_if_index_;
+            log("TUN interface found, index=" + std::to_string(tun_if_index_));
             if (!configureRoutes()) {
-                ERROR_LOG << "TunManager: failed to configure routes";
+                log("ERROR: failed to configure routes");
                 stop();
             }
         }
     });
-    waitTimer_->start(500);
+    waitTimer_ = timer;
+    timer->start(500);
 
     return true;
 }
@@ -155,8 +185,9 @@ bool TunManager::start(const std::string& tun2socks_path,
 void TunManager::stop()
 {
     if (waitTimer_) {
-        waitTimer_->stop();
-        waitTimer_->deleteLater();
+        auto* timer = static_cast<QTimer*>(waitTimer_);
+        timer->stop();
+        timer->deleteLater();
         waitTimer_ = nullptr;
     }
 
@@ -165,38 +196,19 @@ void TunManager::stop()
     }
 
     if (process_) {
-        if (process_->state() != QProcess::NotRunning) {
-            NOTICE_LOG << "TunManager: stopping tun2socks";
-            process_->kill();
-            process_->waitForFinished(3000);
+        auto* proc = static_cast<QProcess*>(process_);
+        if (proc->state() != QProcess::NotRunning) {
+            log("stopping tun2socks");
+            proc->kill();
+            proc->waitForFinished(3000);
         }
-        delete process_;
+        delete proc;
         process_ = nullptr;
     }
 
     running_ = false;
     tun_if_index_ = 0;
-    NOTICE_LOG << "TunManager: stopped";
-}
-
-void TunManager::onProcessReadyReadStdout()
-{
-    QByteArray data = process_->readAllStandardOutput();
-    std::string line(data.constData(), data.size());
-    NOTICE_LOG << "[tun2socks] " << line;
-}
-
-void TunManager::onProcessReadyReadStderr()
-{
-    QByteArray data = process_->readAllStandardError();
-    std::string line(data.constData(), data.size());
-    NOTICE_LOG << "[tun2socks] " << line;
-}
-
-void TunManager::onProcessFinished(int exitCode)
-{
-    NOTICE_LOG << "TunManager: tun2socks exited with code " << exitCode;
-    running_ = false;
+    log("stopped");
 }
 
 bool TunManager::configureRoutes()
@@ -212,7 +224,7 @@ bool TunManager::configureRoutes()
           "' -InterfaceIndex " + std::to_string(tun_if_index_) +
           " -RouteMetric 2 -ErrorAction SilentlyContinue";
     executePowerShell(cmd, output);
-    NOTICE_LOG << "TunManager: add default route -> " << output;
+    log("add default route -> " + output);
     output.clear();
 
     cmd = "New-NetRoute -DestinationPrefix '" + proxy_server +
@@ -220,13 +232,13 @@ bool TunManager::configureRoutes()
           "' -InterfaceIndex " + std::to_string(phys_if_index_) +
           " -RouteMetric 5 -ErrorAction SilentlyContinue";
     executePowerShell(cmd, output);
-    NOTICE_LOG << "TunManager: add bypass route -> " << output;
+    log("add bypass route -> " + output);
     output.clear();
 
     cmd = "Set-DnsClientServerAddress -InterfaceIndex " + std::to_string(tun_if_index_) +
           " -ServerAddresses '" + tun_dns_ + "' -ErrorAction SilentlyContinue";
     executePowerShell(cmd, output);
-    NOTICE_LOG << "TunManager: set DNS -> " << output;
+    log("set DNS -> " + output);
     output.clear();
 
     return true;
@@ -251,7 +263,7 @@ void TunManager::cleanupRoutes()
         "Set-DnsClientServerAddress -InterfaceIndex " + std::to_string(tun_if_index_) +
         " -ResetServerAddresses -ErrorAction SilentlyContinue", output);
 
-    NOTICE_LOG << "TunManager: routes cleaned up";
+    log("routes cleaned up");
 }
 
 #endif
