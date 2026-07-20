@@ -5,14 +5,12 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
-#include <ws2tcpip.h>
 #include <windows.h>
 #include <iphlpapi.h>
 #include <netioapi.h>
 #include <QCoreApplication>
 
 #pragma comment(lib, "iphlpapi.lib")
-#pragma comment(lib, "ws2_32.lib")
 
 TunManager::TunManager(QObject* parent)
     : QObject(parent)
@@ -40,68 +38,33 @@ int TunManager::findInterfaceIndex(const std::string& name)
 
 int TunManager::findTunInterfaceIndex()
 {
-    IP_ADAPTER_ADDRESSES* adapters = nullptr;
-    ULONG bufLen = 15000;
-    for (int retry = 0; retry < 3; retry++) {
-        adapters = (IP_ADAPTER_ADDRESSES*)malloc(bufLen);
-        if (!adapters) return 0;
-        ULONG ret = GetAdaptersAddresses(AF_INET, GAA_FLAG_INCLUDE_PREFIX,
-                                          nullptr, adapters, &bufLen);
-        if (ret == ERROR_SUCCESS) break;
-        free(adapters);
-        adapters = nullptr;
-    }
+    std::string output;
+    std::string cmd = "(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | "
+                      "Where-Object { $_.IPAddress -like '169.254.*' }).InterfaceIndex";
+    if (!executePowerShell(cmd, output)) return 0;
 
-    if (!adapters) return 0;
-
-    int result = 0;
-    for (IP_ADAPTER_ADDRESSES* a = adapters; a; a = a->Next) {
-        if (a->IfType != IF_TYPE_TUNNEL || a->OperStatus != IfOperStatusUp)
-            continue;
-        std::wstring wname(a->FriendlyName);
-        std::string fname(wname.begin(), wname.end());
-        if (fname.find("wintun") != std::string::npos ||
-            fname.find("Wintun") != std::string::npos ||
-            fname.find("WINTUN") != std::string::npos) {
-            result = static_cast<int>(a->IfIndex);
-            break;
-        }
-    }
-    free(adapters);
-    return result;
+    size_t start = output.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) return 0;
+    size_t end = output.find_last_not_of(" \t\r\n");
+    std::string token = output.substr(start, end - start + 1);
+    try { return std::stoi(token); }
+    catch (...) { return 0; }
 }
 
 bool TunManager::findPhysicalGateway()
 {
-    IP_ADAPTER_ADDRESSES* adapters = nullptr;
-    ULONG bufLen = 15000;
-    for (int retry = 0; retry < 3; retry++) {
-        adapters = (IP_ADAPTER_ADDRESSES*)malloc(bufLen);
-        if (!adapters) return false;
-        ULONG ret = GetAdaptersAddresses(AF_INET, GAA_FLAG_INCLUDE_PREFIX,
-                                          nullptr, adapters, &bufLen);
-        if (ret == ERROR_SUCCESS) break;
-        free(adapters);
-        adapters = nullptr;
-    }
-    if (!adapters) return false;
+    std::string output;
+    std::string cmd = "(Get-NetRoute -InterfaceAlias '" + physical_nic_ +
+                      "' -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue).NextHop";
+    if (!executePowerShell(cmd, output)) return false;
 
-    bool found = false;
-    for (IP_ADAPTER_ADDRESSES* a = adapters; a; a = a->Next) {
-        if (static_cast<int>(a->IfIndex) != phys_if_index_)
-            continue;
-        if (a->Gateway.lpSockaddr && a->Gateway.iSockaddrLength > 0) {
-            sockaddr_in* sa = reinterpret_cast<sockaddr_in*>(a->Gateway.lpSockaddr);
-            char ip[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, &sa->sin_addr, ip, sizeof(ip));
-            phys_gateway_ = ip;
-            NOTICE_LOG << "TunManager: physical gateway = " << phys_gateway_;
-            found = true;
-        }
-        break;
-    }
-    free(adapters);
-    return found;
+    // trim whitespace
+    size_t start = output.find_first_not_of(" \t\r\n");
+    size_t end = output.find_last_not_of(" \t\r\n");
+    if (start == std::string::npos) return false;
+    phys_gateway_ = output.substr(start, end - start + 1);
+    NOTICE_LOG << "TunManager: physical gateway = " << phys_gateway_;
+    return !phys_gateway_.empty();
 }
 
 bool TunManager::executePowerShell(const std::string& cmd, std::string& output)
