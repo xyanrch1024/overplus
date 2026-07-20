@@ -258,7 +258,7 @@ bool TunManager::configureRoutes()
     MIB_IPFORWARDROW row = {};
     row.dwForwardDest = 0;
     row.dwForwardMask = 0;
-    row.dwForwardNextHop = inet_addr(tun_addr_.c_str());
+    inet_pton(AF_INET, tun_addr_.c_str(), &row.dwForwardNextHop);
     row.dwForwardIfIndex = tun_if_index_;
     row.dwForwardMetric1 = 2;
 
@@ -273,7 +273,7 @@ bool TunManager::configureRoutes()
     MIB_IPFORWARDROW bypass = {};
     bypass.dwForwardDest = sa.sin_addr.S_un.S_addr;
     bypass.dwForwardMask = 0xFFFFFFFF;
-    bypass.dwForwardNextHop = inet_addr(phys_gateway_.c_str());
+    inet_pton(AF_INET, phys_gateway_.c_str(), &bypass.dwForwardNextHop);
     bypass.dwForwardIfIndex = phys_if_index_;
     bypass.dwForwardMetric1 = 5;
 
@@ -292,7 +292,7 @@ void TunManager::cleanupRoutes()
     MIB_IPFORWARDROW row = {};
     row.dwForwardDest = 0;
     row.dwForwardMask = 0;
-    row.dwForwardNextHop = inet_addr(tun_addr_.c_str());
+    inet_pton(AF_INET, tun_addr_.c_str(), &row.dwForwardNextHop);
     row.dwForwardIfIndex = tun_if_index_;
     DeleteIpForwardEntry(&row);
 
@@ -301,7 +301,7 @@ void TunManager::cleanupRoutes()
     MIB_IPFORWARDROW bypass = {};
     bypass.dwForwardDest = sa.sin_addr.S_un.S_addr;
     bypass.dwForwardMask = 0xFFFFFFFF;
-    bypass.dwForwardNextHop = inet_addr(phys_gateway_.c_str());
+    inet_pton(AF_INET, phys_gateway_.c_str(), &bypass.dwForwardNextHop);
     bypass.dwForwardIfIndex = phys_if_index_;
     DeleteIpForwardEntry(&bypass);
 

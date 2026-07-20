@@ -41,8 +41,8 @@ private:
     std::string tun_dns_;
     std::string server_addr_;
 
-    NET_IFINDEX tun_if_index_ = 0;
-    NET_IFINDEX phys_if_index_ = 0;
+    DWORD tun_if_index_ = 0;
+    DWORD phys_if_index_ = 0;
     std::string tun_addr_;
     std::string phys_gateway_;
 };
