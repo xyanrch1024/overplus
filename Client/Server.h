@@ -36,6 +36,7 @@ private:
     void on_dtls_data(const char* data, size_t len);
 
     boost::asio::io_context io_context;
+    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_;
 
     boost::asio::ip::tcp::acceptor acceptor_;
 

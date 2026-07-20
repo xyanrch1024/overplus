@@ -8,6 +8,7 @@
 
 Server::Server(const std::string& address, const std::string& port)
     : io_context()
+    , work_guard_(boost::asio::make_work_guard(io_context))
     , acceptor_(io_context)
     , ssl_ctx(boost::asio::ssl::context::tlsv13)
 {
@@ -114,6 +115,7 @@ void Server::run()
 void Server::stop()
 {
     NOTICE_LOG << "Server stopped..." << std::endl;
+    work_guard_.reset();
     io_context.stop();
 }
 void Server::stop_dtls()
