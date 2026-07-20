@@ -19,10 +19,10 @@ int main()
         std::cout << buf << std::endl;
     });
 
-    auto server = std::make_shared<Server>(config.local_addr, config.local_port);
-    server->start_dtls();
-    server->start_accept();
-    server->run();
+    Server server(config.local_addr, config.local_port);
+    server.start_dtls();
+    server.start_accept();
+    server.run();
 
     return 0;
 }

@@ -15,7 +15,7 @@ using namespace boost::asio;
 
 class UdpRelay;
 
-class Server : public std::enable_shared_from_this<Server>, private boost::noncopyable {
+class Server : private boost::noncopyable {
 public:
     Server(const std::string& address, const std::string& port);
     void run();

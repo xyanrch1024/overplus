@@ -110,12 +110,12 @@ int main(int argc, char* argv[])
     if (!enable_system_socks_proxy()) {
         return 1;
     }
-    auto server = std::make_shared<Server>(config.local_addr, config.local_port);
+    Server server(config.local_addr, config.local_port);
     QApplication a(argc, argv);
-    MainWindow w(*server);
+    MainWindow w(server);
     w.show();
-    std::shared_ptr<std::thread> backgroud(new std::thread([server] {
-        server->run();
+    std::shared_ptr<std::thread> backgroud(new std::thread([&server] {
+        server.run();
     }));
 
     auto rc = a.exec();
