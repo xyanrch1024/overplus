@@ -72,6 +72,12 @@ struct ClientConfig {
     bool udp_enabled = false;
     std::string dtls_port;
 
+    bool tun2socks_enabled = false;
+    std::string tun2socks_path;
+    std::string tun_interface;
+    std::string tun_dns;
+    std::string tun_addr;
+
     void populate(boost::property_tree::ptree&);
     void setPassword(std::string&psswd);
 

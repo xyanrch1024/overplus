@@ -71,6 +71,12 @@ void ClientConfig::populate(boost::property_tree::ptree& tree)
     password = SHA224(text_password);
     udp_enabled = tree.get("udp_enabled", false);
     dtls_port = tree.get("dtls_port", std::string());
+
+    tun2socks_enabled = tree.get("tun2socks_enabled", false);
+    tun2socks_path = tree.get("tun2socks_path", std::string());
+    tun_interface = tree.get("tun_interface", std::string("WLAN"));
+    tun_dns = tree.get("tun_dns", std::string("8.8.8.8"));
+    tun_addr = tree.get("tun_addr", std::string("192.168.123.1"));
 }
 void ClientConfig::setPassword(std::string&psswd)
 {

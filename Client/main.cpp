@@ -15,6 +15,9 @@
 #include <QFileInfo>
 #include <stdio.h>
 #include <windows.h>
+#ifdef _WIN32
+#include "TunManager.h"
+#endif
 
 LogFile* g_logfile = nullptr;
 const char* LOCAL_PROXY_ADDR = "127.0.0.1";
@@ -107,8 +110,10 @@ int main(int argc, char* argv[])
     logger::setFlush([&]() {
         logfile_.flush();
     });
-    if (!enable_system_socks_proxy()) {
-        return 1;
+    if (!config.tun2socks_enabled) {
+        if (!enable_system_socks_proxy()) {
+            return 1;
+        }
     }
     Server server(config.local_addr, config.local_port);
     QApplication a(argc, argv);
@@ -122,7 +127,9 @@ int main(int argc, char* argv[])
     server.stop();
     backgroud->join();
 
-    disable_system_socks_proxy();
+    if (!config.tun2socks_enabled) {
+        disable_system_socks_proxy();
+    }
 
     return rc;
 }

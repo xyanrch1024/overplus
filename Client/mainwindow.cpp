@@ -10,6 +10,10 @@
 #include "Shared/Log.h"
 #include "Shared/LogFile.h"
 #include "Shared/ProxyStats.h"
+#ifdef _WIN32
+#include "TunManager.h"
+#endif
+#include <QFileDialog>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/asio.hpp>
@@ -94,6 +98,8 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     connect(ui->CONNECT_BUTTON, SIGNAL(clicked()), this, SLOT(onConnect()));
     connect(ui->DISCONNECT_BUTTON, SIGNAL(clicked()), this, SLOT(onDisconnect()));
     connect(ui->PING_BUTTON, SIGNAL(clicked()), this, SLOT(onPing()));
+    connect(ui->TUN_CHECKBOX, SIGNAL(toggled(bool)), this, SLOT(onTunCheckboxToggled(bool)));
+    connect(ui->TUN_BROWSE_BUTTON, SIGNAL(clicked()), this, SLOT(onBrowseTun2socks()));
     connect(ui->LOG_BUTTON, SIGNAL(clicked()), this, SLOT(onToggleLog()));
     connect(ui->checkBox, SIGNAL(clicked()), this, SLOT(onCheckBoxClick()));
     connect(showAction, SIGNAL(triggered()), this, SLOT(onShowWindow()));
@@ -112,6 +118,11 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
          ui->LOCAL_PORT->setText(QString::fromStdString(config.local_port.empty() ? "1080" : config.local_port));
          ui->DTLS_PORT->setText(QString::fromStdString(config.dtls_port.empty() ? "8443" : config.dtls_port));
          ui->UDP_CHECKBOX->setChecked(config.udp_enabled);
+         ui->TUN_CHECKBOX->setChecked(config.tun2socks_enabled);
+         ui->TUN_PATH->setText(QString::fromStdString(config.tun2socks_path));
+         ui->TUN_NIC->setText(QString::fromStdString(config.tun_interface));
+         ui->TUN_DNS->setText(QString::fromStdString(config.tun_dns));
+         onTunCheckboxToggled(config.tun2socks_enabled);
     }
     statusBar()->showMessage(QString("Overplus %1").arg(OVERPLUS_VERSION_STR));
 
@@ -130,6 +141,13 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     statsTimer = new QTimer(this);
     connect(statsTimer, &QTimer::timeout, this, &MainWindow::updateStats);
     statsTimer->start(1000);
+
+#ifdef _WIN32
+    tunManager_ = new TunManager(this);
+    connect(tunManager_, &TunManager::logMessage, this, [this](const std::string& msg) {
+        appendLog(QString::fromStdString(msg));
+    }, Qt::QueuedConnection);
+#endif
 }
 
 MainWindow::~MainWindow()
@@ -158,6 +176,10 @@ void MainWindow::autoSave()
     config.local_port = ui->LOCAL_PORT->text().toStdString();
     config.dtls_port = ui->DTLS_PORT->text().toStdString();
     config.udp_enabled = ui->UDP_CHECKBOX->isChecked();
+    config.tun2socks_enabled = ui->TUN_CHECKBOX->isChecked();
+    config.tun2socks_path = ui->TUN_PATH->text().toStdString();
+    config.tun_interface = ui->TUN_NIC->text().toStdString();
+    config.tun_dns = ui->TUN_DNS->text().toStdString();
 
     boost::property_tree::ptree tree;
     tree.put("run_type", "client");
@@ -169,6 +191,10 @@ void MainWindow::autoSave()
     tree.put("password", config.text_password);
     tree.put("udp_enabled", config.udp_enabled);
     tree.put("dtls_port", config.dtls_port);
+    tree.put("tun2socks_enabled", config.tun2socks_enabled);
+    tree.put("tun2socks_path", config.tun2socks_path);
+    tree.put("tun_interface", config.tun_interface);
+    tree.put("tun_dns", config.tun_dns);
 
     try {
         boost::property_tree::write_json("client.json", tree);
@@ -209,7 +235,8 @@ void MainWindow::onConnect()
     auto psswd = ui->HOST_PASSWD->text().toStdString();
     config.setPassword(psswd);
     NOTICE_LOG<<"Read config from user input:"<<config.remote_addr<<":"<< config.remote_port
-              <<" dtls:"<<config.dtls_port<<" udp:"<<config.udp_enabled;
+              <<" dtls:"<<config.dtls_port<<" udp:"<<config.udp_enabled
+              <<" tun2socks:"<<config.tun2socks_enabled;
 
     ui->UDP_STATUS->setText(config.udp_enabled ? "Active" : "Disabled");
     ui->UDP_STATUS->setStyleSheet(config.udp_enabled ?
@@ -217,10 +244,30 @@ void MainWindow::onConnect()
 
     server.start_accept();
     connectTime_ = std::chrono::steady_clock::now();
+
+#ifdef _WIN32
+    if (config.tun2socks_enabled && !config.tun2socks_path.empty()) {
+        NOTICE_LOG << "Starting tun2socks: " << config.tun2socks_path;
+        if (!tunManager_->start(config.tun2socks_path,
+                                config.local_port.empty() ? "1080" : config.local_port,
+                                config.tun_interface.empty() ? "WLAN" : config.tun_interface,
+                                config.tun_dns.empty() ? "8.8.8.8" : config.tun_dns,
+                                config.remote_addr)) {
+            ERROR_LOG << "Failed to start tun2socks";
+            ui->CONNECTION_STATUS->setText("TUN FAILED");
+            ui->CONNECTION_STATUS->setStyleSheet("color: red; font-weight: bold;");
+        }
+    }
+#endif
 }
 
 void MainWindow::onDisconnect()
 {
+#ifdef _WIN32
+    if (tunManager_ && tunManager_->isRunning()) {
+        tunManager_->stop();
+    }
+#endif
     server.stop_accept();
     ui->CONNECT_BUTTON->setEnabled(true);
     ui->DISCONNECT_BUTTON->setEnabled(false);
@@ -338,4 +385,22 @@ void MainWindow::onAbout()
         QString("<h3>Overplus %1</h3>"
                 "<p>Author: xyanrch / xyanrch1024</p>")
         .arg(OVERPLUS_VERSION_STR));
+}
+
+void MainWindow::onBrowseTun2socks()
+{
+    QString file = QFileDialog::getOpenFileName(this,
+        "Select tun2socks executable", "",
+        "Executable (*.exe);;All Files (*)");
+    if (!file.isEmpty()) {
+        ui->TUN_PATH->setText(file);
+    }
+}
+
+void MainWindow::onTunCheckboxToggled(bool checked)
+{
+    ui->TUN_PATH->setEnabled(checked);
+    ui->TUN_BROWSE_BUTTON->setEnabled(checked);
+    ui->TUN_NIC->setEnabled(checked);
+    ui->TUN_DNS->setEnabled(checked);
 }
