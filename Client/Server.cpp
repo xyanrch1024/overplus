@@ -7,8 +7,7 @@
 #include <memory>
 
 Server::Server(const std::string& address, const std::string& port)
-    : context_pool(1)
-    , io_context(context_pool.get_io_context())
+    : io_context()
     , acceptor_(io_context)
     , ssl_ctx(boost::asio::ssl::context::tlsv13)
 {
@@ -110,12 +109,12 @@ void Server::do_accept()
 void Server::run()
 {
     NOTICE_LOG << "Server start..." << std::endl;
-    context_pool.run();
+    io_context.run();
 }
 void Server::stop()
 {
     NOTICE_LOG << "Server stopped..." << std::endl;
-    context_pool.stop();
+    io_context.stop();
 }
 void Server::stop_dtls()
 {

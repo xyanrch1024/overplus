@@ -1,7 +1,6 @@
 #ifndef SERVER_H_
 #define SERVER_H_
 #include "Shared/DtlsChannel.h"
-#include "Shared/IoContextPool.h"
 #include "Shared/Log.h"
 #include "Session.h"
 #include <boost/asio.hpp>
@@ -36,8 +35,7 @@ private:
     void do_accept();
     void on_dtls_data(const char* data, size_t len);
 
-    IoContextPool context_pool;
-    boost::asio::io_context& io_context;
+    boost::asio::io_context io_context;
 
     boost::asio::ip::tcp::acceptor acceptor_;
 
