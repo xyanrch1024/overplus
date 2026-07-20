@@ -1,10 +1,10 @@
 #pragma once
 #include <string>
-#include <cstdint>
+#include <functional>
 
 #ifdef _WIN32
-#include <QProcess>
 #include <QObject>
+#include <QProcess>
 #include <QTimer>
 
 class TunManager : public QObject {
@@ -20,11 +20,9 @@ public:
                const std::string& server_addr);
 
     void stop();
-
     bool isRunning() const { return running_; }
 
-signals:
-    void logMessage(const std::string& msg);
+    void setLogCallback(std::function<void(const std::string&)> cb) { logCb_ = cb; }
 
 private slots:
     void onProcessReadyReadStdout();
@@ -32,6 +30,7 @@ private slots:
     void onProcessFinished(int exitCode);
 
 private:
+    void log(const std::string& msg);
     bool configureRoutes();
     void cleanupRoutes();
     int  findInterfaceIndex(const std::string& name);
@@ -42,6 +41,7 @@ private:
     QProcess* process_ = nullptr;
     QTimer*   waitTimer_ = nullptr;
     bool running_ = false;
+    std::function<void(const std::string&)> logCb_;
 
     std::string tun2socks_path_;
     std::string proxy_port_;
@@ -53,17 +53,6 @@ private:
     int tun_if_index_ = 0;
     int phys_if_index_ = 0;
     std::string phys_gateway_;
-};
-
-#else
-
-class TunManager {
-public:
-    bool start(const std::string&, const std::string&,
-               const std::string&, const std::string&,
-               const std::string&) { return false; }
-    void stop() {}
-    bool isRunning() const { return false; }
 };
 
 #endif

@@ -144,9 +144,11 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
 
 #ifdef _WIN32
     tunManager_ = new TunManager(this);
-    connect(tunManager_, &TunManager::logMessage, this, [this](const std::string& msg) {
-        appendLog(QString::fromStdString(msg));
-    }, Qt::QueuedConnection);
+    tunManager_->setLogCallback([this](const std::string& msg) {
+        QMetaObject::invokeMethod(this, [this, msg]() {
+            appendLog(QString::fromStdString(msg));
+        }, Qt::QueuedConnection);
+    });
 #endif
 }
 
