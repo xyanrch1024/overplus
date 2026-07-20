@@ -2,10 +2,6 @@
 
 #include "Shared/Log.h"
 #include <QTimer>
-
-#define WIN32_LEAN_AND_MEAN
-#include <winsock2.h>
-#include <windows.h>
 #include <iphlpapi.h>
 #include <netioapi.h>
 #include <shellapi.h>
@@ -137,7 +133,6 @@ bool TunManager::start(const std::string& tun2socks_path,
     }
 
     hProcess_ = sei.hProcess;
-    hThread_ = sei.hThread;
     running_ = true;
 
     auto* poll = new QTimer();
@@ -208,10 +203,6 @@ void TunManager::stop()
         WaitForSingleObject(hProcess_, 3000);
         CloseHandle(hProcess_);
         hProcess_ = nullptr;
-    }
-    if (hThread_) {
-        CloseHandle(hThread_);
-        hThread_ = nullptr;
     }
 
     running_ = false;

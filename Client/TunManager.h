@@ -1,6 +1,8 @@
 #pragma once
 #include <string>
 #include <functional>
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
 #include <windows.h>
 
 class TunManager {
@@ -29,7 +31,6 @@ private:
     bool executePowerShell(const std::string& cmd, std::string& output);
 
     HANDLE hProcess_ = nullptr;
-    HANDLE hThread_ = nullptr;
     void* waitTimer_ = nullptr;
     void* pollTimer_ = nullptr;
     bool running_ = false;
