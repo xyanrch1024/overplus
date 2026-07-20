@@ -371,6 +371,22 @@ void Session::do_handle_socks5_udp_associate()
 {
     auto self(shared_from_this());
 
+    if (!server_.has_dtls()) {
+        ERROR_LOG << "UDP ASSOCIATE rejected: DTLS not available";
+        Reply reply;
+        reply.version = 0x05;
+        reply.reserved = 0x00;
+        reply.addrtype = ADDRTYPE::V4;
+        reply.repResult = 0x02;
+        reply.realRemoteIP = INADDR_ANY;
+        reply.realRemotePort = 0;
+        message_buf.clear();
+        reply.stream(message_buf);
+        boost::asio::write(in_socket, boost::asio::buffer(message_buf));
+        destroy();
+        return;
+    }
+
     session_id_ = server_.allocate_session_id();
 
     udp_relay_ = std::make_shared<UdpRelay>(context_);

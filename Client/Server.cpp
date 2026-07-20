@@ -31,6 +31,11 @@ void Server::start_accept()
 void Server::start_dtls()
 {
     auto& cfg = ConfigManage::instance().client_cfg;
+    if (!cfg.udp_enabled) {
+        NOTICE_LOG << "UDP disabled, skipping DTLS setup";
+        return;
+    }
+
     uint16_t dtls_port = static_cast<uint16_t>(
         std::stoi(cfg.dtls_port.empty() ? cfg.remote_port : cfg.dtls_port));
 
