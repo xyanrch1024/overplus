@@ -20,7 +20,6 @@ if (WIN32)
             mainwindow.cpp
             mainWindow.h
             mainwindow.ui
-            overplus_client.rc
             )
  
 
