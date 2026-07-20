@@ -409,8 +409,7 @@ void Session::do_handle_socks5_udp_associate()
 void Session::do_read_control()
 {
     auto self(shared_from_this());
-    char trash[128];
-    in_socket.async_read_some(boost::asio::buffer(trash),
+    in_socket.async_read_some(boost::asio::buffer(control_recv_buf_),
         [this, self](boost::system::error_code ec, std::size_t) {
             if (ec) {
                 NOTICE_LOG << "UDP ASSOCIATE TCP control closed: " << ec.message();

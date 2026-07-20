@@ -64,4 +64,5 @@ private:
     boost::asio::ssl::context& ssl_ctx;
     boost::asio::ssl::stream<boost::asio::ip::tcp::socket> out_socket;
     std::shared_ptr<UdpRelay> udp_relay_;
+    char control_recv_buf_[128];
 };
