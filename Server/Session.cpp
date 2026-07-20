@@ -36,6 +36,11 @@ void Session<T>::handle_custom_protocol()
                 valid = v_req.unstream(std::string(in_buf.data(), length));
                 password = v_req.password;
                 vprotocol = true;
+                if (valid) {
+                    NOTICE_LOG << "VRequest parsed: user=" << v_req.user_name
+                               << " target=" << v_req.address << ":" << v_req.port
+                               << " buflen=" << length;
+                }
             } else {
                 valid = trojanReq.parse(std::string(in_buf.data(), length)) != -1;
                 password = trojanReq.password;
@@ -47,6 +52,11 @@ void Session<T>::handle_custom_protocol()
                     ERROR_LOG << "unsupported password, closing session";
                     destroy();
                     return;
+                }
+                if (vprotocol) {
+                    NOTICE_LOG << "password ok, target=" << v_req.address << ":" << v_req.port;
+                } else {
+                    NOTICE_LOG << "password ok, target=" << trojanReq.address.address << ":" << trojanReq.address.port;
                 }
 
             } else {
@@ -288,14 +298,17 @@ void Session<T>::do_resolve()
     std::string dns_key = remote_host + ":" + remote_port;
     tcp::endpoint cached_ep;
     if (DnsCacheManager::instance().get_tcp(dns_key, cached_ep)) {
+        NOTICE_LOG << "dns cache hit: " << dns_key << " -> " << cached_ep;
         do_connect(cached_ep);
         return;
     }
 
+    NOTICE_LOG << "resolving " << remote_host << ":" << remote_port;
     resolver_.async_resolve(remote_host, remote_port,
         [this, self, dns_key](const boost::system::error_code& ec, tcp::resolver::results_type results) {
             if (!ec && !results.empty()) {
                 auto ep = *results.begin();
+                NOTICE_LOG << "resolve ok: " << dns_key << " -> " << ep.endpoint();
                 DnsCacheManager::instance().put_tcp(dns_key, ep);
                 do_connect(ep);
             } else {
@@ -315,7 +328,7 @@ void Session<T>::do_connect(tcp::endpoint endpoint)
                 boost::asio::socket_base::keep_alive option(true);
                 downstream_socket.set_option(option);
                 downstream_socket.set_option(boost::asio::ip::tcp::no_delay(true));
-                DEBUG_LOG << "connected to " << remote_host << ":" << remote_port;
+                NOTICE_LOG << "connected to " << remote_host << ":" << remote_port;
 
                 if (vprotocol && !v_req.packed_buff.empty() || !vprotocol && !trojanReq.payload.empty()) {
                     DEBUG_LOG << "payload not empty";

@@ -34,8 +34,8 @@ void VRequest::stream(std::string &buf) {
 }
 
 bool VRequest::unstream(const std::string &buf) {
-    if (buf.length() < sizeof(Header)) {
-        NOTICE_LOG << "Buf len:" << buf.length() << " head size:" << sizeof(Header);
+    if (buf.length() < identifier_len + sizeof(header.version) + sizeof(header.len)) {
+        NOTICE_LOG << "Buf len:" << buf.length() << " head size:" << identifier_len + sizeof(header.version) + sizeof(header.len);
         return false;
     }
     // int pos = 0;
