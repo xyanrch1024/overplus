@@ -19,9 +19,9 @@ public:
     bool isRunning() const { return running_; }
 
     void setLogCallback(std::function<void(const std::string&)> cb) { logCb_ = cb; }
+    void log(const std::string& msg);
 
 private:
-    void log(const std::string& msg);
     bool configureRoutes();
     void cleanupRoutes();
     int  findInterfaceIndex(const std::string& name);
