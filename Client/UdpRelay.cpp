@@ -46,19 +46,6 @@ bool UdpRelay::start(uint16_t& local_port)
                << local_socket_.local_endpoint().address().to_string()
                << ":" << local_socket_.local_endpoint().port();
 
-    // Loopback self-test: send a small UDP packet to ourselves
-    {
-        auto ep = local_socket_.local_endpoint();
-        const char test_marker[] = "\x00\x00\x00\x01\x7f\x00\x00\x01\x00\x35TEST";
-        boost::system::error_code sec;
-        local_socket_.send_to(boost::asio::buffer(test_marker, sizeof(test_marker) - 1), ep, 0, sec);
-        if (sec) {
-            NOTICE_LOG << "UDP loopback self-test send failed: " << sec.message();
-        } else {
-            NOTICE_LOG << "UDP loopback self-test packet sent to " << ep.address().to_string() << ":" << ep.port();
-        }
-    }
-
     return true;
 }
 
@@ -128,7 +115,11 @@ void UdpRelay::on_dtls_data(const char* data, size_t len)
 
     pkt += frame.payload;
 
-    local_socket_.send_to(boost::asio::buffer(pkt), sender_ep_);
+    boost::system::error_code sec;
+    local_socket_.send_to(boost::asio::buffer(pkt), sender_ep_, 0, sec);
+    if (sec) {
+        NOTICE_LOG << "UDP relay send_to app failed: " << sec.message();
+    }
 }
 
 void UdpRelay::do_receive_local()
@@ -136,25 +127,28 @@ void UdpRelay::do_receive_local()
     local_socket_.async_receive_from(
         boost::asio::buffer(recv_buf_), sender_ep_,
         [this](boost::system::error_code ec, std::size_t len) {
-            if (ec) {
-                NOTICE_LOG << "UDP local recv error: " << ec.message() << " running=" << running_;
+            if (!running_) {
                 return;
             }
-            if (!running_) {
-                NOTICE_LOG << "UDP local recv: not running, discarding " << len;
+            if (ec) {
+                NOTICE_LOG << "UDP local recv error: " << ec.message();
+                do_receive_local();
+                return;
+            }
+            if (len < 4) {
+                do_receive_local();
                 return;
             }
 
+            ProxyStats::instance().addUpstreamDelta(len);
             NOTICE_LOG << "UDP relay --> server: " << len << " bytes from "
                       << sender_ep_.address().to_string() << ":" << sender_ep_.port();
 
-            ProxyStats::instance().addUpstreamDelta(len);
-
-            if (len < 4) { NOTICE_LOG << "UDP local recv too short: " << len; return; }
-
             const char* p = recv_buf_.data();
-            if (p[0] != 0x00 || p[1] != 0x00) { NOTICE_LOG << "UDP local recv bad RSV: " << (int)p[0] << " " << (int)p[1]; return; }
-            if (p[2] != 0x00) { NOTICE_LOG << "UDP local recv FRAG=" << (int)p[2] << " (expected 0)"; return; }
+            if (p[0] != 0x00 || p[1] != 0x00 || p[2] != 0x00) {
+                do_receive_local();
+                return;
+            }
 
             uint8_t atyp = static_cast<uint8_t>(p[3]);
             p += 4;
@@ -167,7 +161,7 @@ void UdpRelay::do_receive_local()
 
             switch (atyp) {
             case 0x01: {
-                if (len < 4 + 2) { NOTICE_LOG << "UDP local recv IPv4 too short: " << len; return; }
+                if (len < 6) { do_receive_local(); return; }
                 target_addr.assign(p, 4);
                 target_port = (static_cast<uint8_t>(p[4]) << 8) | static_cast<uint8_t>(p[5]);
                 payload = p + 6;
@@ -175,11 +169,11 @@ void UdpRelay::do_receive_local()
                 break;
             }
             case 0x03: {
-                if (len < 1) { NOTICE_LOG << "UDP local recv DOMAIN too short: " << len; return; }
+                if (len < 1) { do_receive_local(); return; }
                 uint8_t dlen = static_cast<uint8_t>(p[0]);
                 p++;
                 len--;
-                if (len < dlen + 2) { NOTICE_LOG << "UDP local recv DOMAIN addr+port too short: " << len; return; }
+                if (len < static_cast<size_t>(dlen) + 2) { do_receive_local(); return; }
                 target_addr.assign(p, dlen);
                 target_port = (static_cast<uint8_t>(p[dlen]) << 8) | static_cast<uint8_t>(p[dlen + 1]);
                 payload = p + dlen + 2;
@@ -187,7 +181,7 @@ void UdpRelay::do_receive_local()
                 break;
             }
             case 0x04: {
-                if (len < 16 + 2) { NOTICE_LOG << "UDP local recv IPv6 too short: " << len; return; }
+                if (len < 18) { do_receive_local(); return; }
                 target_addr.assign(p, 16);
                 target_port = (static_cast<uint8_t>(p[16]) << 8) | static_cast<uint8_t>(p[17]);
                 payload = p + 18;
@@ -195,7 +189,7 @@ void UdpRelay::do_receive_local()
                 break;
             }
             default:
-                NOTICE_LOG << "UDP local recv unknown ATYP: " << (int)atyp;
+                do_receive_local();
                 return;
             }
 
@@ -222,7 +216,7 @@ void UdpRelay::do_receive_local()
                           << (atyp == 0x01 ? "IPv4" : atyp == 0x03 ? "domain" : "IPv6") << " port " << target_port;
                 dtls_->send(frame);
             } else {
-                NOTICE_LOG << "UDP relay queuing pending frame (dtls_ready=" << (dtls_ ? dtls_->is_ready() : false) << ")";
+                NOTICE_LOG << "UDP relay queuing pending frame";
                 pending_frames_.push(std::move(frame));
             }
 
