@@ -107,67 +107,6 @@
      </widget>
     </item>
     <item>
-     <widget class="QGroupBox" name="tunGroup">
-      <property name="title"><string>TUN Mode (tun2socks)</string></property>
-      <layout class="QFormLayout" name="tunForm">
-       <property name="topMargin"><number>8</number></property>
-       <property name="bottomMargin"><number>8</number></property>
-       <item row="0" column="0">
-        <widget class="QLabel" name="label_tun_enable">
-         <property name="text"><string>Enable</string></property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QCheckBox" name="TUN_CHECKBOX">
-         <property name="text"><string>Enable tun2socks</string></property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="label_tun_path">
-         <property name="text"><string>Path</string></property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <layout class="QHBoxLayout" name="tunPathLayout">
-         <item>
-          <widget class="QLineEdit" name="TUN_PATH">
-           <property name="placeholderText"><string>C:\...\tun2socks.exe</string></property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="TUN_BROWSE_BUTTON">
-           <property name="text"><string>Browse</string></property>
-           <property name="maximumSize">
-            <size><width>80</width><height>16777215</height></size>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="label_tun_nic">
-         <property name="text"><string>NIC</string></property>
-        </widget>
-       </item>
-       <item row="2" column="1">
-        <widget class="QLineEdit" name="TUN_NIC">
-         <property name="placeholderText"><string>WLAN</string></property>
-        </widget>
-       </item>
-       <item row="3" column="0">
-        <widget class="QLabel" name="label_tun_dns">
-         <property name="text"><string>DNS</string></property>
-        </widget>
-       </item>
-       <item row="3" column="1">
-        <widget class="QLineEdit" name="TUN_DNS">
-         <property name="placeholderText"><string>8.8.8.8</string></property>
-        </widget>
-       </item>
-      </layout>
-     </widget>
-    </item>
-    <item>
      <widget class="QGroupBox" name="connectionGroup">
       <property name="title"><string>Connection</string></property>
       <layout class="QFormLayout" name="statusForm">

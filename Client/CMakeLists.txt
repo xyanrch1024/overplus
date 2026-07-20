@@ -15,10 +15,8 @@ if (WIN32)
             Server.cpp
             Session.cpp
             UdpRelay.cpp
-            TunManager.h
-            TunManager.cpp
             mainwindow.cpp
-            mainWindow.h
+            mainwindow.h
             mainwindow.ui
             )
  

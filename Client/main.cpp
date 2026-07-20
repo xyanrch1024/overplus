@@ -15,39 +15,6 @@
 #include <QFileInfo>
 #include <stdio.h>
 #include <windows.h>
-#include <shellapi.h>
-#include "TunManager.h"
-
-static bool isRunAsAdmin()
-{
-    BOOL isAdmin = FALSE;
-    PSID adminGroup = NULL;
-    SID_IDENTIFIER_AUTHORITY ntAuth = SECURITY_NT_AUTHORITY;
-    if (AllocateAndInitializeSid(&ntAuth, 2, SECURITY_BUILTIN_DOMAIN_RID,
-        DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0, &adminGroup)) {
-        CheckTokenMembership(NULL, adminGroup, &isAdmin);
-        FreeSid(adminGroup);
-    }
-    return isAdmin == TRUE;
-}
-
-static bool elevateAndRestart()
-{
-    char exePath[MAX_PATH];
-    GetModuleFileNameA(NULL, exePath, MAX_PATH);
-    SHELLEXECUTEINFOA sei = {};
-    sei.cbSize = sizeof(sei);
-    sei.fMask = SEE_MASK_NOCLOSEPROCESS;
-    sei.lpVerb = "runas";
-    sei.lpFile = exePath;
-    sei.lpParameters = "";
-    sei.nShow = SW_SHOWNORMAL;
-    if (ShellExecuteExA(&sei)) {
-        if (sei.hProcess) CloseHandle(sei.hProcess);
-        return true;
-    }
-    return false;
-}
 
 LogFile* g_logfile = nullptr;
 const char* LOCAL_PROXY_ADDR = "127.0.0.1";
@@ -123,13 +90,6 @@ bool enable_system_socks_proxy()
 int main(int argc, char* argv[])
 {
     SetupUTF8Console();
-
-    if (!isRunAsAdmin()) {
-        if (elevateAndRestart()) {
-            return 0;
-        }
-    }
-
     std::cout << "Overplus " << OVERPLUS_VERSION_STR << std::endl;
     QFileInfo file("client.json");
     auto& config = ConfigManage::instance().client_cfg;
@@ -147,10 +107,8 @@ int main(int argc, char* argv[])
     logger::setFlush([&]() {
         logfile_.flush();
     });
-    if (!config.tun2socks_enabled) {
-        if (!enable_system_socks_proxy()) {
-            return 1;
-        }
+    if (!enable_system_socks_proxy()) {
+        return 1;
     }
     Server server(config.local_addr, config.local_port);
     QApplication a(argc, argv);
@@ -164,9 +122,7 @@ int main(int argc, char* argv[])
     server.stop();
     backgroud->join();
 
-    if (!config.tun2socks_enabled) {
-        disable_system_socks_proxy();
-    }
+    disable_system_socks_proxy();
 
     return rc;
 }

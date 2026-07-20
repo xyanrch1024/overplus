@@ -9,8 +9,6 @@
 #include <chrono>
 #include "Server.h"
 
-class TunManager;
-
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -38,8 +36,6 @@ public slots:
     void updateDuration();
     void autoSave();
     void onAbout();
-    void onBrowseTun2socks();
-    void onTunCheckboxToggled(bool checked);
 private:
     Ui::MainWindow *ui;
     Server& server;
@@ -47,6 +43,5 @@ private:
     QMenu* trayMenu;
     QTimer* statsTimer;
     std::chrono::steady_clock::time_point connectTime_;
-    TunManager* tunManager_;
 };
 #endif // MAINWINDOW_H
