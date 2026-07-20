@@ -138,7 +138,7 @@
           <widget class="QPushButton" name="TUN_BROWSE_BUTTON">
            <property name="text"><string>Browse</string></property>
            <property name="maximumSize">
-            <size><width>80</width><height>16777215</height></property>
+            <size><width>80</width><height>16777215</height></size>
            </property>
           </widget>
          </item>
