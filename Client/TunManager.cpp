@@ -1,9 +1,6 @@
 #include "TunManager.h"
 
-#ifdef _WIN32
-
 #include "Shared/Log.h"
-#include <QProcess>
 #include <QTimer>
 
 #define WIN32_LEAN_AND_MEAN
@@ -11,27 +8,9 @@
 #include <windows.h>
 #include <iphlpapi.h>
 #include <netioapi.h>
+#include <shellapi.h>
 
 #pragma comment(lib, "iphlpapi.lib")
-
-static void slotStdout(TunManager* self, QProcess* proc)
-{
-    QByteArray data = proc->readAllStandardOutput();
-    std::string line(data.constData(), data.size());
-    self->log("[tun2socks] " + line);
-}
-
-static void slotStderr(TunManager* self, QProcess* proc)
-{
-    QByteArray data = proc->readAllStandardError();
-    std::string line(data.constData(), data.size());
-    self->log("[tun2socks] " + line);
-}
-
-static void slotFinished(TunManager* self, int exitCode)
-{
-    self->log("tun2socks exited with code " + std::to_string(exitCode));
-}
 
 TunManager::TunManager()
 {
@@ -133,34 +112,55 @@ bool TunManager::start(const std::string& tun2socks_path,
         return false;
     }
 
-    auto* proc = new QProcess();
-    QObject::connect(proc, &QProcess::readyReadStandardOutput,
-        [this, proc]() { slotStdout(this, proc); });
-    QObject::connect(proc, &QProcess::readyReadStandardError,
-        [this, proc]() { slotStderr(this, proc); });
-    QObject::connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-        [this](int ec) { slotFinished(this, ec); });
+    std::string args = "--device wintun --proxy socks5://127.0.0.1:" + proxy_port_ +
+                       " --interface " + physical_nic_ + " --loglevel info";
+    std::string params = "\"" + tun2socks_path_ + "\" " + args;
 
-    process_ = proc;
+    SHELLEXECUTEINFOA sei = {};
+    sei.cbSize = sizeof(sei);
+    sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
+    sei.lpVerb = "runas";
+    sei.lpFile = tun2socks_path_.c_str();
+    sei.lpParameters = args.c_str();
+    sei.nShow = SW_HIDE;
 
-    QString exe = QString::fromStdString(tun2socks_path_);
-    QStringList args;
-    args << "--device" << "wintun"
-         << "--proxy" << QString("socks5://127.0.0.1:%1").arg(QString::fromStdString(proxy_port_))
-         << "--interface" << QString::fromStdString(physical_nic_)
-         << "--loglevel" << "info";
+    log("starting (elevated): " + tun2socks_path_ + " " + args);
 
-    log("starting " + exe.toStdString() + " " + args.join(" ").toStdString());
-    proc->start(exe, args);
-
-    if (!proc->waitForStarted(5000)) {
-        log("ERROR: failed to start tun2socks");
-        delete proc;
-        process_ = nullptr;
+    if (!ShellExecuteExA(&sei)) {
+        DWORD err = GetLastError();
+        if (err == ERROR_CANCELLED) {
+            log("ERROR: UAC elevation denied by user");
+        } else {
+            log("ERROR: ShellExecuteEx failed, code=" + std::to_string(err));
+        }
         return false;
     }
 
+    hProcess_ = sei.hProcess;
+    hThread_ = sei.hThread;
     running_ = true;
+
+    auto* poll = new QTimer();
+    QObject::connect(poll, &QTimer::timeout, [this, poll]() {
+        if (!hProcess_) {
+            poll->stop();
+            poll->deleteLater();
+            pollTimer_ = nullptr;
+            return;
+        }
+        DWORD exitCode = 0;
+        if (GetExitCodeProcess(hProcess_, &exitCode) && exitCode != STILL_ACTIVE) {
+            log("tun2socks exited with code " + std::to_string(exitCode));
+            poll->stop();
+            poll->deleteLater();
+            pollTimer_ = nullptr;
+            if (running_) {
+                running_ = false;
+            }
+        }
+    });
+    pollTimer_ = poll;
+    poll->start(2000);
 
     auto* timer = new QTimer();
     QObject::connect(timer, &QTimer::timeout, [this, timer]() {
@@ -191,19 +191,27 @@ void TunManager::stop()
         waitTimer_ = nullptr;
     }
 
+    if (pollTimer_) {
+        auto* timer = static_cast<QTimer*>(pollTimer_);
+        timer->stop();
+        timer->deleteLater();
+        pollTimer_ = nullptr;
+    }
+
     if (running_) {
         cleanupRoutes();
     }
 
-    if (process_) {
-        auto* proc = static_cast<QProcess*>(process_);
-        if (proc->state() != QProcess::NotRunning) {
-            log("stopping tun2socks");
-            proc->kill();
-            proc->waitForFinished(3000);
-        }
-        delete proc;
-        process_ = nullptr;
+    if (hProcess_) {
+        log("stopping tun2socks");
+        TerminateProcess(hProcess_, 0);
+        WaitForSingleObject(hProcess_, 3000);
+        CloseHandle(hProcess_);
+        hProcess_ = nullptr;
+    }
+    if (hThread_) {
+        CloseHandle(hThread_);
+        hThread_ = nullptr;
     }
 
     running_ = false;
@@ -265,5 +273,3 @@ void TunManager::cleanupRoutes()
 
     log("routes cleaned up");
 }
-
-#endif

@@ -1,8 +1,7 @@
 #pragma once
 #include <string>
 #include <functional>
-
-#ifdef _WIN32
+#include <windows.h>
 
 class TunManager {
 public:
@@ -29,8 +28,10 @@ private:
     bool findPhysicalGateway();
     bool executePowerShell(const std::string& cmd, std::string& output);
 
-    void* process_ = nullptr;
+    HANDLE hProcess_ = nullptr;
+    HANDLE hThread_ = nullptr;
     void* waitTimer_ = nullptr;
+    void* pollTimer_ = nullptr;
     bool running_ = false;
     std::function<void(const std::string&)> logCb_;
 
@@ -45,17 +46,3 @@ private:
     int phys_if_index_ = 0;
     std::string phys_gateway_;
 };
-
-#else
-
-class TunManager {
-public:
-    bool start(const std::string&, const std::string&,
-               const std::string&, const std::string&,
-               const std::string&) { return false; }
-    void stop() {}
-    bool isRunning() const { return false; }
-    void setLogCallback(std::function<void(const std::string&)>) {}
-};
-
-#endif

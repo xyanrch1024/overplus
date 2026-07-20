@@ -9,9 +9,7 @@
 #include <chrono>
 #include "Server.h"
 
-#ifdef _WIN32
 class TunManager;
-#endif
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -49,8 +47,6 @@ private:
     QMenu* trayMenu;
     QTimer* statsTimer;
     std::chrono::steady_clock::time_point connectTime_;
-#ifdef _WIN32
     TunManager* tunManager_;
-#endif
 };
 #endif // MAINWINDOW_H

@@ -10,9 +10,7 @@
 #include "Shared/Log.h"
 #include "Shared/LogFile.h"
 #include "Shared/ProxyStats.h"
-#ifdef _WIN32
 #include "TunManager.h"
-#endif
 #include <QFileDialog>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -142,21 +140,17 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     connect(statsTimer, &QTimer::timeout, this, &MainWindow::updateStats);
     statsTimer->start(1000);
 
-#ifdef _WIN32
     tunManager_ = new TunManager();
     tunManager_->setLogCallback([this](const std::string& msg) {
         QMetaObject::invokeMethod(this, [this, msg]() {
             appendLog(QString::fromStdString(msg));
         }, Qt::QueuedConnection);
     });
-#endif
 }
 
 MainWindow::~MainWindow()
 {
-#ifdef _WIN32
     delete tunManager_;
-#endif
     delete ui;
 }
 
@@ -250,7 +244,6 @@ void MainWindow::onConnect()
     server.start_accept();
     connectTime_ = std::chrono::steady_clock::now();
 
-#ifdef _WIN32
     if (config.tun2socks_enabled && !config.tun2socks_path.empty()) {
         NOTICE_LOG << "Starting tun2socks: " << config.tun2socks_path;
         if (!tunManager_->start(config.tun2socks_path,
@@ -263,16 +256,13 @@ void MainWindow::onConnect()
             ui->CONNECTION_STATUS->setStyleSheet("color: red; font-weight: bold;");
         }
     }
-#endif
 }
 
 void MainWindow::onDisconnect()
 {
-#ifdef _WIN32
     if (tunManager_ && tunManager_->isRunning()) {
         tunManager_->stop();
     }
-#endif
     server.stop_accept();
     ui->CONNECT_BUTTON->setEnabled(true);
     ui->DISCONNECT_BUTTON->setEnabled(false);
