@@ -7,7 +7,7 @@
 #include <memory>
 
 Server::Server(const std::string& address, const std::string& port)
-    : context_pool(2)
+    : context_pool(1)
     , io_context(context_pool.get_io_context())
     , acceptor_(io_context)
     , ssl_ctx(boost::asio::ssl::context::tlsv13)
@@ -81,7 +81,7 @@ void Server::on_dtls_data(const char* data, size_t len)
 }
 void Server::do_accept()
 {
-    std::shared_ptr<Session> new_session = std::make_shared<Session>(context_pool.get_io_context(), ssl_ctx, *this);
+    std::shared_ptr<Session> new_session = std::make_shared<Session>(io_context, ssl_ctx, *this);
     acceptor_.async_accept(new_session->socket(), [this, new_session](const boost::system::error_code& ec) {
         if (!acceptor_.is_open()) {
             return;
