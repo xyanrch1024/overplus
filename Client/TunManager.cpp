@@ -80,6 +80,52 @@ bool TunManager::executePowerShell(const std::string& cmd, std::string& output)
     return true;
 }
 
+bool TunManager::executePowerShellElevated(const std::string& ps1Content)
+{
+    char tmpPath[MAX_PATH];
+    GetTempPathA(MAX_PATH, tmpPath);
+    std::string scriptPath = std::string(tmpPath) + "overplus_routes.ps1";
+
+    FILE* f = fopen(scriptPath.c_str(), "w");
+    if (!f) {
+        log("ERROR: cannot write temp script " + scriptPath);
+        return false;
+    }
+    fwrite(ps1Content.c_str(), 1, ps1Content.size(), f);
+    fclose(f);
+
+    std::string params = "-ExecutionPolicy Bypass -File \"" + scriptPath + "\"";
+
+    SHELLEXECUTEINFOA sei = {};
+    sei.cbSize = sizeof(sei);
+    sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
+    sei.lpVerb = "runas";
+    sei.lpFile = "powershell.exe";
+    sei.lpParameters = params.c_str();
+    sei.nShow = SW_HIDE;
+
+    log("executing elevated PowerShell script");
+
+    if (!ShellExecuteExA(&sei)) {
+        DWORD err = GetLastError();
+        if (err == ERROR_CANCELLED) {
+            log("ERROR: UAC elevation denied for route config");
+        } else {
+            log("ERROR: ShellExecuteEx for routes failed, code=" + std::to_string(err));
+        }
+        DeleteFileA(scriptPath.c_str());
+        return false;
+    }
+
+    if (sei.hProcess) {
+        WaitForSingleObject(sei.hProcess, 15000);
+        CloseHandle(sei.hProcess);
+    }
+
+    DeleteFileA(scriptPath.c_str());
+    return true;
+}
+
 bool TunManager::start(const std::string& tun2socks_path,
                        const std::string& proxy_port,
                        const std::string& physical_nic,
@@ -214,53 +260,47 @@ bool TunManager::configureRoutes()
 {
     if (tun_if_index_ <= 0) return false;
 
-    std::string cmd;
-    std::string output;
-
     std::string proxy_server = server_addr_ + "/32";
 
-    cmd = "New-NetRoute -DestinationPrefix '0.0.0.0/0' -NextHop '" + tun_addr_ +
-          "' -InterfaceIndex " + std::to_string(tun_if_index_) +
-          " -RouteMetric 2 -ErrorAction SilentlyContinue";
-    executePowerShell(cmd, output);
-    log("add default route -> " + output);
-    output.clear();
+    std::string ps1;
+    ps1 += "New-NetRoute -DestinationPrefix '0.0.0.0/0' -NextHop '" + tun_addr_ +
+           "' -InterfaceIndex " + std::to_string(tun_if_index_) +
+           " -RouteMetric 2 -ErrorAction SilentlyContinue\n";
+    ps1 += "New-NetRoute -DestinationPrefix '" + proxy_server +
+           "' -NextHop '" + phys_gateway_ +
+           "' -InterfaceIndex " + std::to_string(phys_if_index_) +
+           " -RouteMetric 5 -ErrorAction SilentlyContinue\n";
+    ps1 += "Set-DnsClientServerAddress -InterfaceIndex " + std::to_string(tun_if_index_) +
+           " -ServerAddresses '" + tun_dns_ + "' -ErrorAction SilentlyContinue\n";
 
-    cmd = "New-NetRoute -DestinationPrefix '" + proxy_server +
-          "' -NextHop '" + phys_gateway_ +
-          "' -InterfaceIndex " + std::to_string(phys_if_index_) +
-          " -RouteMetric 5 -ErrorAction SilentlyContinue";
-    executePowerShell(cmd, output);
-    log("add bypass route -> " + output);
-    output.clear();
+    log("configuring routes (elevated):");
+    log("  default 0.0.0.0/0 -> " + tun_addr_ + " via TUN#" + std::to_string(tun_if_index_));
+    log("  bypass " + proxy_server + " -> " + phys_gateway_ + " via NIC#" + std::to_string(phys_if_index_));
+    log("  DNS -> " + tun_dns_);
 
-    cmd = "Set-DnsClientServerAddress -InterfaceIndex " + std::to_string(tun_if_index_) +
-          " -ServerAddresses '" + tun_dns_ + "' -ErrorAction SilentlyContinue";
-    executePowerShell(cmd, output);
-    log("set DNS -> " + output);
-    output.clear();
-
-    return true;
+    bool ok = executePowerShellElevated(ps1);
+    if (ok) {
+        log("route configuration commands sent (elevated)");
+    } else {
+        log("ERROR: failed to execute route configuration");
+    }
+    return ok;
 }
 
 void TunManager::cleanupRoutes()
 {
     if (tun_if_index_ <= 0) return;
 
-    std::string output;
+    std::string ps1;
+    ps1 += "Remove-NetRoute -DestinationPrefix '0.0.0.0/0' -InterfaceIndex " +
+           std::to_string(tun_if_index_) + " -Confirm:$false -ErrorAction SilentlyContinue\n";
+    ps1 += "Remove-NetRoute -DestinationPrefix '" + server_addr_ + "/32'" +
+           " -InterfaceIndex " + std::to_string(phys_if_index_) +
+           " -Confirm:$false -ErrorAction SilentlyContinue\n";
+    ps1 += "Set-DnsClientServerAddress -InterfaceIndex " + std::to_string(tun_if_index_) +
+           " -ResetServerAddresses -ErrorAction SilentlyContinue\n";
 
-    executePowerShell(
-        "Remove-NetRoute -DestinationPrefix '0.0.0.0/0' -InterfaceIndex " +
-        std::to_string(tun_if_index_) + " -Confirm:$false -ErrorAction SilentlyContinue", output);
-
-    executePowerShell(
-        "Remove-NetRoute -DestinationPrefix '" + server_addr_ + "/32'" +
-        " -InterfaceIndex " + std::to_string(phys_if_index_) +
-        " -Confirm:$false -ErrorAction SilentlyContinue", output);
-
-    executePowerShell(
-        "Set-DnsClientServerAddress -InterfaceIndex " + std::to_string(tun_if_index_) +
-        " -ResetServerAddresses -ErrorAction SilentlyContinue", output);
-
+    log("cleaning up routes (elevated)");
+    executePowerShellElevated(ps1);
     log("routes cleaned up");
 }

@@ -29,6 +29,7 @@ private:
     int  findTunInterfaceIndex();
     bool findPhysicalGateway();
     bool executePowerShell(const std::string& cmd, std::string& output);
+    bool executePowerShellElevated(const std::string& ps1Content);
 
     HANDLE hProcess_ = nullptr;
     void* waitTimer_ = nullptr;
