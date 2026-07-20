@@ -251,7 +251,8 @@ void TunManager::stop()
 }
 
 static DWORD addRoute(const char* dest, const char* mask,
-                      const char* nexthop, DWORD ifIndex, DWORD metric)
+                      const char* nexthop, DWORD ifIndex, DWORD metric,
+                      DWORD type = MIB_IPROUTE_TYPE_INDIRECT)
 {
     MIB_IPFORWARDROW row = {};
     row.dwForwardDest = inet_addr(dest);
@@ -259,15 +260,15 @@ static DWORD addRoute(const char* dest, const char* mask,
     row.dwForwardPolicy = 0;
     row.dwForwardNextHop = inet_addr(nexthop);
     row.dwForwardIfIndex = ifIndex;
-    row.dwForwardType = (row.dwForwardNextHop == 0)
-        ? MIB_IPROUTE_TYPE_DIRECT : MIB_IPROUTE_TYPE_INDIRECT;
+    row.dwForwardType = type;
     row.dwForwardProto = MIB_IPPROTO_NETMGMT;
     row.dwForwardMetric1 = metric;
     return CreateIpForwardEntry(&row);
 }
 
 static DWORD delRoute(const char* dest, const char* mask,
-                      const char* nexthop, DWORD ifIndex)
+                      const char* nexthop, DWORD ifIndex,
+                      DWORD type = MIB_IPROUTE_TYPE_INDIRECT)
 {
     MIB_IPFORWARDROW row = {};
     row.dwForwardDest = inet_addr(dest);
@@ -275,7 +276,7 @@ static DWORD delRoute(const char* dest, const char* mask,
     row.dwForwardPolicy = 0;
     row.dwForwardNextHop = inet_addr(nexthop);
     row.dwForwardIfIndex = ifIndex;
-    row.dwForwardType = MIB_IPROUTE_TYPE_INDIRECT;
+    row.dwForwardType = type;
     row.dwForwardProto = MIB_IPPROTO_NETMGMT;
     return DeleteIpForwardEntry(&row);
 }
@@ -287,16 +288,62 @@ bool TunManager::configureRoutes()
     bool ok = true;
     DWORD ret;
 
-    ret = addRoute("0.0.0.0", "0.0.0.0", tun_addr_.c_str(), tun_if_index_, 2);
-    log("add default route 0.0.0.0/0 -> " + tun_addr_ +
-        " ret=" + std::to_string(ret));
-    if (ret != NO_ERROR) ok = false;
+    {
+        MIB_IPFORWARD_ROW2 row = {};
+        row.Protocol = MIB_IPPROTO_NETMGMT;
+        row.Scope = 0;
+        row.Luid = 0;
 
-    ret = addRoute(server_addr_.c_str(), "255.255.255.255",
-                   phys_gateway_.c_str(), phys_if_index_, 5);
-    log("add bypass route " + server_addr_ + "/32 -> " + phys_gateway_ +
-        " ret=" + std::to_string(ret));
-    if (ret != NO_ERROR) ok = false;
+        row.DestinationPrefix.Ipv4.sin_family = AF_INET;
+        row.DestinationPrefix.Ipv4.sin_addr.S_un.S_addr = 0;
+        row.DestinationPrefix.PrefixLength = 0;
+
+        row.NextHop.Ipv4.sin_family = AF_INET;
+        row.NextHop.Ipv4.sin_addr.S_un.S_addr = 0;
+
+        row.InterfaceLuid.Value = 0;
+        row.InterfaceIndex = tun_if_index_;
+        row.Metric = 2;
+        row.RouteType = 3;
+        row.AutoconfigureAddress = FALSE;
+        row.Publish = FALSE;
+        row.Age = 0;
+
+        ret = CreateIpForwardEntry2(&row);
+        log("add default route 0.0.0.0/0 -> TUN#" + std::to_string(tun_if_index_) +
+            " ret=" + std::to_string(ret));
+        if (ret != NO_ERROR) ok = false;
+    }
+
+    {
+        MIB_IPFORWARD_ROW2 row = {};
+        row.Protocol = MIB_IPPROTO_NETMGMT;
+        row.Scope = 0;
+        row.Luid = 0;
+
+        sockaddr_in sa;
+        inet_pton(AF_INET, server_addr_.c_str(), &sa.sin_addr);
+        row.DestinationPrefix.Ipv4.sin_family = AF_INET;
+        row.DestinationPrefix.Ipv4.sin_addr = sa.sin_addr;
+        row.DestinationPrefix.PrefixLength = 32;
+
+        inet_pton(AF_INET, phys_gateway_.c_str(), &sa.sin_addr);
+        row.NextHop.Ipv4.sin_family = AF_INET;
+        row.NextHop.Ipv4.sin_addr = sa.sin_addr;
+
+        row.InterfaceLuid.Value = 0;
+        row.InterfaceIndex = phys_if_index_;
+        row.Metric = 5;
+        row.RouteType = 4;
+        row.AutoconfigureAddress = FALSE;
+        row.Publish = FALSE;
+        row.Age = 0;
+
+        ret = CreateIpForwardEntry2(&row);
+        log("add bypass route " + server_addr_ + "/32 -> " + phys_gateway_ +
+            " ret=" + std::to_string(ret));
+        if (ret != NO_ERROR) ok = false;
+    }
 
     return ok;
 }
@@ -305,9 +352,32 @@ void TunManager::cleanupRoutes()
 {
     if (tun_if_index_ <= 0) return;
 
-    delRoute("0.0.0.0", "0.0.0.0", tun_addr_.c_str(), tun_if_index_);
-    delRoute(server_addr_.c_str(), "255.255.255.255",
-             phys_gateway_.c_str(), phys_if_index_);
+    {
+        MIB_IPFORWARD_ROW2 row = {};
+        row.Protocol = MIB_IPPROTO_NETMGMT;
+        row.DestinationPrefix.Ipv4.sin_family = AF_INET;
+        row.DestinationPrefix.Ipv4.sin_addr.S_un.S_addr = 0;
+        row.DestinationPrefix.PrefixLength = 0;
+        row.NextHop.Ipv4.sin_family = AF_INET;
+        row.NextHop.Ipv4.sin_addr.S_un.S_addr = 0;
+        row.InterfaceIndex = tun_if_index_;
+        DeleteIpForwardEntry2(&row);
+    }
+
+    {
+        MIB_IPFORWARD_ROW2 row = {};
+        row.Protocol = MIB_IPPROTO_NETMGMT;
+        sockaddr_in sa;
+        inet_pton(AF_INET, server_addr_.c_str(), &sa.sin_addr);
+        row.DestinationPrefix.Ipv4.sin_family = AF_INET;
+        row.DestinationPrefix.Ipv4.sin_addr = sa.sin_addr;
+        row.DestinationPrefix.PrefixLength = 32;
+        inet_pton(AF_INET, phys_gateway_.c_str(), &sa.sin_addr);
+        row.NextHop.Ipv4.sin_family = AF_INET;
+        row.NextHop.Ipv4.sin_addr = sa.sin_addr;
+        row.InterfaceIndex = phys_if_index_;
+        DeleteIpForwardEntry2(&row);
+    }
 
     log("routes cleaned up");
 }
