@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 
-set TUN=tun2socks Tunnel #2
+set TUN=wintun
 set PHYS=WLAN
 set SRV=38.226.195.218
 set DNS=8.8.8.8
