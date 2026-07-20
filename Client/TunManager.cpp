@@ -40,8 +40,7 @@ int TunManager::findInterfaceIndex(const std::string& name)
 int TunManager::findTunInterfaceIndex()
 {
     std::string output;
-    std::string cmd = "(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | "
-                      "Where-Object { $_.IPAddress -like '169.254.*' }).InterfaceIndex";
+    std::string cmd = "(Get-NetAdapter -Name '*tun2socks*' -ErrorAction SilentlyContinue).InterfaceIndex";
     if (!executePowerShell(cmd, output)) return 0;
 
     size_t start = output.find_first_not_of(" \t\r\n");
@@ -50,6 +49,22 @@ int TunManager::findTunInterfaceIndex()
     std::string token = output.substr(start, end - start + 1);
     try { return std::stoi(token); }
     catch (...) { return 0; }
+}
+
+std::string TunManager::findTunIPAddress()
+{
+    if (tun_if_index_ <= 0) return "";
+
+    std::string output;
+    std::string cmd = "(Get-NetIPAddress -InterfaceIndex " + std::to_string(tun_if_index_) +
+                      " -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress";
+    if (!executePowerShell(cmd, output)) return "";
+
+    size_t start = output.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) return "";
+    size_t end = output.find_first_of(" \t\r\n", start);
+    if (end == std::string::npos) end = output.size();
+    return output.substr(start, end - start);
 }
 
 bool TunManager::findPhysicalGateway()
@@ -207,10 +222,16 @@ bool TunManager::start(const std::string& tun2socks_path,
     QObject::connect(timer, &QTimer::timeout, [this, timer]() {
         tun_if_index_ = findTunInterfaceIndex();
         if (tun_if_index_ > 0) {
+            tun_addr_ = findTunIPAddress();
             timer->stop();
             timer->deleteLater();
             waitTimer_ = nullptr;
-            log("TUN interface found, index=" + std::to_string(tun_if_index_));
+            log("TUN interface found, index=" + std::to_string(tun_if_index_) + " ip=" + tun_addr_);
+            if (tun_addr_.empty()) {
+                log("ERROR: cannot detect TUN IP address");
+                stop();
+                return;
+            }
             if (!configureRoutes()) {
                 log("ERROR: failed to configure routes");
                 stop();

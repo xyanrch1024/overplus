@@ -27,6 +27,7 @@ private:
     void cleanupRoutes();
     int  findInterfaceIndex(const std::string& name);
     int  findTunInterfaceIndex();
+    std::string findTunIPAddress();
     bool findPhysicalGateway();
     bool executePowerShell(const std::string& cmd, std::string& output);
     bool executePowerShellElevated(const std::string& ps1Content);
@@ -42,7 +43,7 @@ private:
     std::string physical_nic_;
     std::string tun_dns_;
     std::string server_addr_;
-    std::string tun_addr_ = "192.168.123.1";
+    std::string tun_addr_;
 
     int tun_if_index_ = 0;
     int phys_if_index_ = 0;
