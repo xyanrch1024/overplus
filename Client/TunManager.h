@@ -44,5 +44,6 @@ private:
     DWORD tun_if_index_ = 0;
     DWORD phys_if_index_ = 0;
     std::string tun_addr_;
+    std::string tun_nic_;
     std::string phys_gateway_;
 };

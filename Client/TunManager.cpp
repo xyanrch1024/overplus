@@ -58,8 +58,13 @@ bool TunManager::findTunAdapter()
             tun_if_index_ = aa->IfIndex;
             tun_addr_ = ip;
 
-            log("TUN adapter found: \"" + desc + "\" index=" +
-                std::to_string(tun_if_index_) + " ip=" + tun_addr_);
+            if (aa->FriendlyName) {
+                tun_nic_ = std::string(aa->FriendlyName,
+                                       aa->FriendlyName + wcslen(aa->FriendlyName));
+            }
+
+            log("TUN adapter found: \"" + desc + "\" name=\"" + tun_nic_ +
+                "\" index=" + std::to_string(tun_if_index_) + " ip=" + tun_addr_);
             free(adapters);
             return true;
         }
@@ -257,15 +262,20 @@ bool TunManager::configureRoutes()
     std::string cmd;
     int ret;
 
-    cmd = "netsh interface ipv4 add route 0.0.0.0/0 \"" + physical_nic_ + "\" " +
-          tun_addr_ + " metric=2";
+    cmd = "netsh interface ipv4 add route 0.0.0.0/0 \"" + tun_nic_ + "\" metric=1 publish=no";
     log("exec: " + cmd);
     ret = system(cmd.c_str());
     log("ret=" + std::to_string(ret));
     if (ret != 0) ok = false;
 
     cmd = "netsh interface ipv4 add route " + server_addr_ + "/32 \"" + physical_nic_ +
-          "\" " + phys_gateway_ + " metric=5";
+          "\" " + phys_gateway_ + " metric=3";
+    log("exec: " + cmd);
+    ret = system(cmd.c_str());
+    log("ret=" + std::to_string(ret));
+    if (ret != 0) ok = false;
+
+    cmd = "netsh interface ipv4 set dns \"" + tun_nic_ + "\" static " + tun_dns_ + " register=primary";
     log("exec: " + cmd);
     ret = system(cmd.c_str());
     log("ret=" + std::to_string(ret));
@@ -278,8 +288,9 @@ void TunManager::cleanupRoutes()
 {
     if (tun_if_index_ <= 0) return;
 
-    system(("netsh interface ipv4 delete route 0.0.0.0/0 \"" + physical_nic_ + "\"").c_str());
+    system(("netsh interface ipv4 delete route 0.0.0.0/0 \"" + tun_nic_ + "\"").c_str());
     system(("netsh interface ipv4 delete route " + server_addr_ + "/32 \"" + physical_nic_ + "\"").c_str());
+    system(("netsh interface ipv4 set dns \"" + tun_nic_ + "\" dhcp").c_str());
 
     log("routes cleaned up");
 }
