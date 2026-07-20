@@ -143,7 +143,7 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     statsTimer->start(1000);
 
 #ifdef _WIN32
-    tunManager_ = new TunManager(this);
+    tunManager_ = new TunManager();
     tunManager_->setLogCallback([this](const std::string& msg) {
         QMetaObject::invokeMethod(this, [this, msg]() {
             appendLog(QString::fromStdString(msg));
@@ -154,6 +154,9 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+#ifdef _WIN32
+    delete tunManager_;
+#endif
     delete ui;
 }
 
