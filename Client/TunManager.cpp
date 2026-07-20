@@ -8,6 +8,7 @@
 #include <ws2tcpip.h>
 #include <string>
 
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
 #pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "ws2_32.lib")
 
@@ -249,35 +250,50 @@ void TunManager::stop()
     log("stopped");
 }
 
+static DWORD addRoute(const char* dest, const char* mask,
+                      const char* nexthop, DWORD ifIndex, DWORD metric)
+{
+    MIB_IPFORWARDROW row = {};
+    row.dwForwardDest = inet_addr(dest);
+    row.dwForwardMask = inet_addr(mask);
+    row.dwForwardPolicy = 0;
+    row.dwForwardNextHop = inet_addr(nexthop);
+    row.dwForwardIfIndex = ifIndex;
+    row.dwForwardType = (row.dwForwardNextHop == 0)
+        ? MIB_IPROUTE_TYPE_DIRECT : MIB_IPROUTE_TYPE_INDIRECT;
+    row.dwForwardProto = MIB_IPPROTO_NETMGMT;
+    row.dwForwardMetric1 = metric;
+    return CreateIpForwardEntry(&row);
+}
+
+static DWORD delRoute(const char* dest, const char* mask,
+                      const char* nexthop, DWORD ifIndex)
+{
+    MIB_IPFORWARDROW row = {};
+    row.dwForwardDest = inet_addr(dest);
+    row.dwForwardMask = inet_addr(mask);
+    row.dwForwardPolicy = 0;
+    row.dwForwardNextHop = inet_addr(nexthop);
+    row.dwForwardIfIndex = ifIndex;
+    row.dwForwardType = MIB_IPROUTE_TYPE_INDIRECT;
+    row.dwForwardProto = MIB_IPPROTO_NETMGMT;
+    return DeleteIpForwardEntry(&row);
+}
+
 bool TunManager::configureRoutes()
 {
     if (tun_if_index_ <= 0 || tun_addr_.empty()) return false;
 
     bool ok = true;
+    DWORD ret;
 
-    MIB_IPFORWARDROW row = {};
-    row.dwForwardDest = 0;
-    row.dwForwardMask = 0;
-    inet_pton(AF_INET, tun_addr_.c_str(), &row.dwForwardNextHop);
-    row.dwForwardIfIndex = tun_if_index_;
-    row.dwForwardMetric1 = 2;
-
-    DWORD ret = CreateIpForwardEntry(&row);
+    ret = addRoute("0.0.0.0", "0.0.0.0", tun_addr_.c_str(), tun_if_index_, 2);
     log("add default route 0.0.0.0/0 -> " + tun_addr_ +
-        " (ifIndex=" + std::to_string(tun_if_index_) + ")" +
         " ret=" + std::to_string(ret));
     if (ret != NO_ERROR) ok = false;
 
-    sockaddr_in sa;
-    inet_pton(AF_INET, server_addr_.c_str(), &sa.sin_addr);
-    MIB_IPFORWARDROW bypass = {};
-    bypass.dwForwardDest = sa.sin_addr.S_un.S_addr;
-    bypass.dwForwardMask = 0xFFFFFFFF;
-    inet_pton(AF_INET, phys_gateway_.c_str(), &bypass.dwForwardNextHop);
-    bypass.dwForwardIfIndex = phys_if_index_;
-    bypass.dwForwardMetric1 = 5;
-
-    ret = CreateIpForwardEntry(&bypass);
+    ret = addRoute(server_addr_.c_str(), "255.255.255.255",
+                   phys_gateway_.c_str(), phys_if_index_, 5);
     log("add bypass route " + server_addr_ + "/32 -> " + phys_gateway_ +
         " ret=" + std::to_string(ret));
     if (ret != NO_ERROR) ok = false;
@@ -289,21 +305,9 @@ void TunManager::cleanupRoutes()
 {
     if (tun_if_index_ <= 0) return;
 
-    MIB_IPFORWARDROW row = {};
-    row.dwForwardDest = 0;
-    row.dwForwardMask = 0;
-    inet_pton(AF_INET, tun_addr_.c_str(), &row.dwForwardNextHop);
-    row.dwForwardIfIndex = tun_if_index_;
-    DeleteIpForwardEntry(&row);
-
-    sockaddr_in sa;
-    inet_pton(AF_INET, server_addr_.c_str(), &sa.sin_addr);
-    MIB_IPFORWARDROW bypass = {};
-    bypass.dwForwardDest = sa.sin_addr.S_un.S_addr;
-    bypass.dwForwardMask = 0xFFFFFFFF;
-    inet_pton(AF_INET, phys_gateway_.c_str(), &bypass.dwForwardNextHop);
-    bypass.dwForwardIfIndex = phys_if_index_;
-    DeleteIpForwardEntry(&bypass);
+    delRoute("0.0.0.0", "0.0.0.0", tun_addr_.c_str(), tun_if_index_);
+    delRoute(server_addr_.c_str(), "255.255.255.255",
+             phys_gateway_.c_str(), phys_if_index_);
 
     log("routes cleaned up");
 }
