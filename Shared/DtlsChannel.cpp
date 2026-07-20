@@ -53,7 +53,7 @@ void DtlsChannel::start(HandshakeCallback on_handshake, DataCallback on_data)
     on_data_ = std::move(on_data);
     running_ = true;
     do_receive();
-    do_handshake();
+    boost::asio::post(io_ctx_, [this]() { do_handshake(); });
 }
 
 void DtlsChannel::stop()
@@ -115,13 +115,13 @@ void DtlsChannel::do_handshake()
 
 void DtlsChannel::drain_write_bio()
 {
-    char buf[65535];
+    auto buf = std::make_shared<std::vector<char>>(65535);
     int n;
-    while ((n = ::BIO_read(write_bio_, buf, sizeof(buf))) > 0) {
+    while ((n = ::BIO_read(write_bio_, buf->data(), buf->size())) > 0) {
         NOTICE_LOG << "DTLS sending " << n << " bytes to " << server_ep_.address().to_string() << ":" << server_ep_.port();
         socket_.async_send_to(
-            boost::asio::buffer(buf, n), server_ep_,
-            [](boost::system::error_code ec, std::size_t sent) {
+            boost::asio::buffer(buf->data(), n), server_ep_,
+            [buf](boost::system::error_code ec, std::size_t sent) {
                 if (ec) {
                     ERROR_LOG << "DTLS send failed: " << ec.message();
                 }
@@ -161,7 +161,7 @@ void DtlsChannel::on_receive(boost::system::error_code ec, std::size_t len)
     ::BIO_write(read_bio_, recv_buf_.data(), len);
 
     if (!handshake_done_) {
-        do_handshake();
+        boost::asio::post(io_ctx_, [this]() { do_handshake(); });
     } else {
         char buf[65535];
         int n = ::SSL_read(ssl_, buf, sizeof(buf));

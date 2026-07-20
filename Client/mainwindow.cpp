@@ -222,6 +222,7 @@ void MainWindow::onConnect()
 
 void MainWindow::onDisconnect()
 {
+    server.stop_dtls();
     server.stop_accept();
     ui->CONNECT_BUTTON->setEnabled(true);
     ui->DISCONNECT_BUTTON->setEnabled(false);

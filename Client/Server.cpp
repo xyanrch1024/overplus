@@ -117,6 +117,17 @@ void Server::stop()
     NOTICE_LOG << "Server stopped..." << std::endl;
     context_pool.stop();
 }
+void Server::stop_dtls()
+{
+    boost::asio::post(io_context, [this]() {
+        if (dtls_) {
+            dtls_->stop();
+            dtls_.reset();
+        }
+        dtls_ready_ = false;
+    });
+}
+
 void Server::stop_accept()
 {
     boost::asio::post(io_context, [this]() {

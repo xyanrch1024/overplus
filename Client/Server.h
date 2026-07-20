@@ -24,6 +24,7 @@ public:
     void stop_accept();
 
     void start_dtls();
+    void stop_dtls();
     bool has_dtls() const { return dtls_ != nullptr; }
     DtlsChannel& dtls() { return *dtls_; }
     uint16_t allocate_session_id() { return next_session_id_++; }
