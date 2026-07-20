@@ -2,6 +2,7 @@
 #include <boost/asio.hpp>
 #include <boost/core/noncopyable.hpp>
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -33,8 +34,8 @@ private:
     void try_read_app_data();
     void start_proxy();
     void do_read_target();
-    void do_resolve_and_send(std::string domain, uint16_t port, const std::string& payload);
-    void do_send_to_target(const boost::asio::ip::udp::endpoint& target_ep, const std::string& payload);
+    void do_resolve_and_send(std::string domain, uint16_t port, const std::string& payload, uint16_t session_id);
+    void do_send_to_target(const boost::asio::ip::udp::endpoint& target_ep, const std::string& payload, uint16_t session_id);
     void send_to_client(const std::string& data);
     void destroy() { stop(); }
 
@@ -50,6 +51,8 @@ private:
     boost::asio::ip::udp::resolver resolver_;
     boost::asio::ip::udp::endpoint target_ep_;
     std::array<char, 65535> target_recv_buf_;
+
+    std::map<boost::asio::ip::udp::endpoint, uint16_t> target_to_session_;
 
     State state_ = HANDSHAKE;
     std::string auth_buf_;

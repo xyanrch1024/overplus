@@ -12,6 +12,7 @@
 #include <vector>
 using boost::asio::ip::tcp;
 
+class Server;
 class UdpRelay;
 
 class Session : public std::enable_shared_from_this<Session>
@@ -22,7 +23,7 @@ class Session : public std::enable_shared_from_this<Session>
     };
 
 public:
-    Session(boost::asio::io_context& context, boost::asio::ssl::context& ssl);
+    Session(boost::asio::io_context& context, boost::asio::ssl::context& ssl, Server& server);
 
     void start();
     boost::asio::ip::tcp::socket& socket();
@@ -63,6 +64,8 @@ private:
     std::atomic<bool> destroyed_{false};
     boost::asio::ssl::context& ssl_ctx;
     boost::asio::ssl::stream<boost::asio::ip::tcp::socket> out_socket;
+    Server& server_;
     std::shared_ptr<UdpRelay> udp_relay_;
+    uint16_t session_id_ = 0;
     char control_recv_buf_[128];
 };

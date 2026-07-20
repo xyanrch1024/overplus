@@ -7,14 +7,10 @@
 
 using boost::asio::ip::udp;
 
-UdpRelay::UdpRelay(boost::asio::io_context& io_ctx,
-                     const std::string& server_addr,
-                     uint16_t server_port,
-                     const std::string& password)
+UdpRelay::UdpRelay(boost::asio::io_context& io_ctx)
     : io_ctx_(io_ctx)
     , local_socket_(io_ctx, udp::endpoint(boost::asio::ip::address_v4::loopback(), 0))
 {
-    dtls_ = std::make_unique<DtlsChannel>(io_ctx, server_addr, server_port, password);
 }
 
 UdpRelay::~UdpRelay()
@@ -22,30 +18,18 @@ UdpRelay::~UdpRelay()
     stop();
 }
 
-bool UdpRelay::start(uint16_t& local_port)
+bool UdpRelay::start(uint16_t& local_port, DtlsChannel& dtls, uint16_t session_id)
 {
     local_port = local_socket_.local_endpoint().port();
+    dtls_ = &dtls;
+    session_id_ = session_id;
     running_ = true;
-
-    dtls_->start(
-        [this](bool ok) {
-            if (ok) {
-                NOTICE_LOG << "UDP relay: DTLS connected, local port " << local_socket_.local_endpoint().port();
-                flush_pending();
-            } else {
-                ERROR_LOG << "UDP relay: DTLS handshake failed";
-                stop();
-            }
-        },
-        [this](const char* data, size_t len) {
-            on_dtls_data(data, len);
-        });
 
     do_receive_local();
     NOTICE_LOG << "UDP relay started, local socket bound to "
                << local_socket_.local_endpoint().address().to_string()
-               << ":" << local_socket_.local_endpoint().port();
-
+               << ":" << local_socket_.local_endpoint().port()
+               << " session_id=" << session_id_;
     return true;
 }
 
@@ -58,18 +42,19 @@ void UdpRelay::stop()
     local_socket_.cancel(ec);
     local_socket_.close(ec);
 
-    if (dtls_) {
-        dtls_->stop();
-    }
-
-    NOTICE_LOG << "UDP relay stopped";
+    NOTICE_LOG << "UDP relay stopped, session_id=" << session_id_;
 }
 
 void UdpRelay::flush_pending()
 {
-    NOTICE_LOG << "UDP relay flushing " << pending_frames_.size() << " pending frames";
-    while (!pending_frames_.empty() && dtls_ && dtls_->is_ready()) {
-        dtls_->send(pending_frames_.front());
+    if (!dtls_ || !dtls_->is_ready()) return;
+    NOTICE_LOG << "UDP relay flushing " << pending_frames_.size() << " pending frames, session_id=" << session_id_;
+    while (!pending_frames_.empty()) {
+        std::string pkt;
+        pkt += char(session_id_ >> 8);
+        pkt += char(session_id_ & 0xFF);
+        pkt += pending_frames_.front();
+        dtls_->send(pkt);
         pending_frames_.pop();
     }
 }
@@ -81,7 +66,7 @@ void UdpRelay::on_dtls_data(const char* data, size_t len)
     UdpFrame frame;
     size_t frame_len = 0;
     if (!frame.parse(std::string(data, len), frame_len)) {
-        ERROR_LOG << "UDP relay: invalid frame from server";
+        ERROR_LOG << "UDP relay: invalid frame from server, session_id=" << session_id_;
         return;
     }
 
@@ -142,7 +127,8 @@ void UdpRelay::do_receive_local()
 
             ProxyStats::instance().addUpstreamDelta(len);
             NOTICE_LOG << "UDP relay --> server: " << len << " bytes from "
-                      << sender_ep_.address().to_string() << ":" << sender_ep_.port();
+                      << sender_ep_.address().to_string() << ":" << sender_ep_.port()
+                      << " session_id=" << session_id_;
 
             const char* p = recv_buf_.data();
             if (p[0] != 0x00 || p[1] != 0x00 || p[2] != 0x00) {
@@ -212,11 +198,13 @@ void UdpRelay::do_receive_local()
             }
 
             if (dtls_ && dtls_->is_ready()) {
-                NOTICE_LOG << "UDP relay sending via DTLS: " << payload_len << " payload bytes to "
-                          << (atyp == 0x01 ? "IPv4" : atyp == 0x03 ? "domain" : "IPv6") << " port " << target_port;
-                dtls_->send(frame);
+                std::string pkt;
+                pkt += char(session_id_ >> 8);
+                pkt += char(session_id_ & 0xFF);
+                pkt += frame;
+                dtls_->send(pkt);
             } else {
-                NOTICE_LOG << "UDP relay queuing pending frame";
+                NOTICE_LOG << "UDP relay queuing pending frame, session_id=" << session_id_;
                 pending_frames_.push(std::move(frame));
             }
 

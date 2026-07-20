@@ -154,14 +154,24 @@ void DtlsServerSession::try_read_app_data()
         } else if (state_ == PROXY) {
             std::string data(buf, n);
             NOTICE_LOG << "DTLS PROXY recv " << n << " bytes";
+
+            if (data.size() < 2) {
+                DEBUG_LOG << "DTLS PROXY: too short for session_id";
+                return;
+            }
+            uint16_t session_id = (static_cast<uint8_t>(data[0]) << 8)
+                                | static_cast<uint8_t>(data[1]);
+            std::string frame_data = data.substr(2);
+
             size_t frame_len = 0;
             UdpFrame frame;
-            if (frame.parse(data, frame_len)) {
-                NOTICE_LOG << "DTLS recv UDP frame: " << frame.addr_str()
+            if (frame.parse(frame_data, frame_len)) {
+                NOTICE_LOG << "DTLS recv UDP frame: session_id=" << session_id
+                          << " " << frame.addr_str()
                           << " payload=" << frame.payload.size();
 
                 if (frame.addr_type == UdpFrame::ADDR_DOMAIN) {
-                    do_resolve_and_send(frame.address, frame.port, frame.payload);
+                    do_resolve_and_send(frame.address, frame.port, frame.payload, session_id);
                 } else if (frame.addr_type == UdpFrame::ADDR_IPV4) {
                     const auto* p = reinterpret_cast<const uint8_t*>(frame.address.data());
                     uint32_t ip = (static_cast<uint32_t>(p[0]) << 24)
@@ -169,12 +179,12 @@ void DtlsServerSession::try_read_app_data()
                                 | (static_cast<uint32_t>(p[2]) << 8)
                                 |  static_cast<uint32_t>(p[3]);
                     udp::endpoint ep(boost::asio::ip::address_v4(ip), frame.port);
-                    do_send_to_target(ep, frame.payload);
+                    do_send_to_target(ep, frame.payload, session_id);
                 } else if (frame.addr_type == UdpFrame::ADDR_IPV6) {
                     boost::asio::ip::address_v6::bytes_type bytes;
                     std::memcpy(bytes.data(), frame.address.data(), 16);
                     udp::endpoint ep(boost::asio::ip::address_v6(bytes), frame.port);
-                    do_send_to_target(ep, frame.payload);
+                    do_send_to_target(ep, frame.payload, session_id);
                 }
             } else {
                 DEBUG_LOG << "DTLS: invalid UdpFrame from client";
@@ -205,35 +215,39 @@ void DtlsServerSession::start_proxy()
     do_read_target();
 }
 
-void DtlsServerSession::do_resolve_and_send(std::string domain, uint16_t port, const std::string& payload)
+void DtlsServerSession::do_resolve_and_send(std::string domain, uint16_t port, const std::string& payload, uint16_t session_id)
 {
     auto self(shared_from_this());
 
     udp::endpoint cached_ep;
     if (DnsCacheManager::instance().get_udp(domain + ":" + std::to_string(port), cached_ep)) {
-        do_send_to_target(cached_ep, payload);
+        do_send_to_target(cached_ep, payload, session_id);
         return;
     }
 
     resolver_.async_resolve(domain, std::to_string(port),
-        [this, self, domain, port, payload](boost::system::error_code ec, udp::resolver::results_type results) {
+        [this, self, domain, port, payload, session_id](boost::system::error_code ec, udp::resolver::results_type results) {
             if (ec) {
                 DEBUG_LOG << "DTLS DNS resolve failed for " << domain << ": " << ec.message();
                 return;
             }
             auto ep = *results.begin();
             DnsCacheManager::instance().put_udp(domain + ":" + std::to_string(port), ep);
-            do_send_to_target(ep, payload);
+            do_send_to_target(ep, payload, session_id);
         });
 }
 
-void DtlsServerSession::do_send_to_target(const udp::endpoint& target_ep, const std::string& payload)
+void DtlsServerSession::do_send_to_target(const udp::endpoint& target_ep, const std::string& payload, uint16_t session_id)
 {
     target_ep_ = target_ep;
+    if (session_id) {
+        target_to_session_[target_ep] = session_id;
+    }
     auto self(shared_from_this());
 
     NOTICE_LOG << "DTLS sending " << payload.size() << " bytes to target "
-              << target_ep.address().to_string() << ":" << target_ep.port();
+              << target_ep.address().to_string() << ":" << target_ep.port()
+              << " session_id=" << session_id;
 
     target_socket_.async_send_to(
         boost::asio::buffer(payload), target_ep_,
@@ -258,12 +272,26 @@ void DtlsServerSession::do_read_target()
                 if (ec != boost::asio::error::operation_aborted) {
                     DEBUG_LOG << "DTLS target recv error: " << ec.message();
                 }
+                if (ec != boost::asio::error::operation_aborted) {
+                    do_read_target();
+                }
                 return;
+            }
+
+            uint16_t session_id = 0;
+            auto it = target_to_session_.find(*sender_ep);
+            if (it != target_to_session_.end()) {
+                session_id = it->second;
             }
 
             std::string frame = UdpFrame::generate(*sender_ep,
                 std::string(target_recv_buf_.data(), len));
-            send_to_client(frame);
+
+            std::string resp;
+            resp += char(session_id >> 8);
+            resp += char(session_id & 0xFF);
+            resp += frame;
+            send_to_client(resp);
             do_read_target();
         });
 }

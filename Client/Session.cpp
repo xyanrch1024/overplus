@@ -1,5 +1,6 @@
 
 #include "Session.h"
+#include "Server.h"
 #include "UdpRelay.h"
 #include "Shared/ConfigManage.h"
 #include "Shared/Log.h"
@@ -11,16 +12,15 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ssl/verify_mode.hpp>
 #include <cstddef>
-Session::Session(boost::asio::io_context& context, boost::asio::ssl::context& ssl)
+Session::Session(boost::asio::io_context& context, boost::asio::ssl::context& ssl, Server& server)
     : context_(context)
     , in_socket(context_)
-
     , resolver_(context_)
     , in_buf(MAX_BUFF_SIZE)
     , out_buf(MAX_BUFF_SIZE)
     , ssl_ctx(ssl)
     , out_socket(context_, ssl_ctx)
-
+    , server_(server)
 {
     out_socket.set_verify_mode(boost::asio::ssl::verify_none);
     auto& config = ConfigManage::instance().client_cfg;
@@ -358,6 +358,9 @@ void Session::destroy()
         out_socket.lowest_layer().close(ec);
     }
 
+    if (session_id_) {
+        server_.unregister_relay(session_id_);
+    }
     if (udp_relay_) {
         udp_relay_->stop();
         udp_relay_.reset();
@@ -368,19 +371,19 @@ void Session::do_handle_socks5_udp_associate()
 {
     auto self(shared_from_this());
 
-    auto& config = ConfigManage::instance().client_cfg;
-    uint16_t dtls_port = static_cast<uint16_t>(
-        std::stoi(config.dtls_port.empty() ? config.remote_port : config.dtls_port));
+    session_id_ = server_.allocate_session_id();
 
-    udp_relay_ = std::make_shared<UdpRelay>(context_,
-        config.remote_addr, dtls_port, config.text_password);
+    udp_relay_ = std::make_shared<UdpRelay>(context_);
 
     uint16_t local_port = 0;
-    if (!udp_relay_->start(local_port)) {
+    if (!udp_relay_->start(local_port, server_.dtls(), session_id_)) {
         ERROR_LOG << "failed to start UDP relay";
+        server_.unregister_relay(session_id_);
         destroy();
         return;
     }
+
+    server_.register_relay(session_id_, udp_relay_.get());
 
     message_buf.clear();
     {

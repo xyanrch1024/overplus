@@ -1,4 +1,6 @@
 #include "Server.h"
+#include "UdpRelay.h"
+#include "Shared/ConfigManage.h"
 #include "Shared/ProxyStats.h"
 #include <boost/asio/io_context.hpp>
 #include <cstdlib>
@@ -7,15 +9,12 @@
 Server::Server(const std::string& address, const std::string& port)
     : context_pool(2)
     , io_context(context_pool.get_io_context())
-   // , signals(io_context)
     , acceptor_(io_context)
     , ssl_ctx(boost::asio::ssl::context::tlsv13)
 {
     add_signals();
     ip::tcp::resolver resover(io_context);
     local_endpoint = *resover.resolve(address, port).begin();
-
-  // start_accept();
 }
 
 void Server::start_accept()
@@ -28,9 +27,61 @@ void Server::start_accept()
         do_accept();
     });
 }
+
+void Server::start_dtls()
+{
+    auto& cfg = ConfigManage::instance().client_cfg;
+    uint16_t dtls_port = static_cast<uint16_t>(
+        std::stoi(cfg.dtls_port.empty() ? cfg.remote_port : cfg.dtls_port));
+
+    dtls_ = std::make_unique<DtlsChannel>(io_context, cfg.remote_addr, dtls_port, cfg.text_password);
+
+    dtls_->start(
+        [this](bool ok) {
+            if (ok) {
+                NOTICE_LOG << "Shared DTLS connected";
+                dtls_ready_ = true;
+                std::lock_guard<std::mutex> lock(relays_mutex_);
+                for (auto& [sid, relay] : relays_) {
+                    relay->flush_pending();
+                }
+            } else {
+                ERROR_LOG << "Shared DTLS handshake failed";
+            }
+        },
+        [this](const char* data, size_t len) {
+            on_dtls_data(data, len);
+        });
+}
+
+void Server::register_relay(uint16_t sid, UdpRelay* relay)
+{
+    std::lock_guard<std::mutex> lock(relays_mutex_);
+    relays_[sid] = relay;
+}
+
+void Server::unregister_relay(uint16_t sid)
+{
+    std::lock_guard<std::mutex> lock(relays_mutex_);
+    relays_.erase(sid);
+}
+
+void Server::on_dtls_data(const char* data, size_t len)
+{
+    if (len < 2) return;
+    uint16_t sid = (static_cast<uint8_t>(data[0]) << 8) | static_cast<uint8_t>(data[1]);
+
+    std::lock_guard<std::mutex> lock(relays_mutex_);
+    auto it = relays_.find(sid);
+    if (it != relays_.end()) {
+        it->second->on_dtls_data(data + 2, len - 2);
+    } else {
+        NOTICE_LOG << "Shared DTLS: no relay for session_id=" << sid;
+    }
+}
 void Server::do_accept()
 {
-    std::shared_ptr<Session> new_session = std::make_shared<Session>(context_pool.get_io_context(), ssl_ctx);
+    std::shared_ptr<Session> new_session = std::make_shared<Session>(context_pool.get_io_context(), ssl_ctx, *shared_from_this());
     acceptor_.async_accept(new_session->socket(), [this, new_session](const boost::system::error_code& ec) {
         if (!acceptor_.is_open()) {
             return;
