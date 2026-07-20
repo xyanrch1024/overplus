@@ -26,6 +26,11 @@ if (WIN32)
     add_executable(overplus_client main.cpp ${SRCS})
     target_link_libraries(overplus_client Threads::Threads shared proto OpenSSL::SSL
             Qt5::Core Qt5::Gui Qt5::Widgets ${Boost_LIBRARIES} wsock32 ws2_32 crypt32)
+    if (MSVC)
+        set_target_properties(overplus_client PROPERTIES
+            LINK_FLAGS "/MANIFEST:EMBED /MANIFESTINPUT:${CMAKE_CURRENT_SOURCE_DIR}/overplus_client.manifest"
+        )
+    endif()
     set_target_properties(overplus_client PROPERTIES
             MACOSX_BUNDLE_GUI_IDENTIFIER my.example.com
             MACOSX_BUNDLE TRUE

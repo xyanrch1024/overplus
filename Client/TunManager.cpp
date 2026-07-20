@@ -151,12 +151,12 @@ bool TunManager::start(const std::string& tun2socks_path,
     SHELLEXECUTEINFOA sei = {};
     sei.cbSize = sizeof(sei);
     sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_FLAG_NO_UI;
-    sei.lpVerb = "runas";
+    sei.lpVerb = "open";
     sei.lpFile = tun2socks_path_.c_str();
     sei.lpParameters = args.c_str();
     sei.nShow = SW_HIDE;
 
-    log("starting (elevated): " + tun2socks_path_ + " " + args);
+    log("starting: " + tun2socks_path_ + " " + args);
 
     if (!ShellExecuteExA(&sei)) {
         DWORD err = GetLastError();
