@@ -12,7 +12,7 @@ UdpRelay::UdpRelay(boost::asio::io_context& io_ctx,
                      uint16_t server_port,
                      const std::string& password)
     : io_ctx_(io_ctx)
-    , local_socket_(io_ctx, udp::endpoint(udp::v4(), 0))
+    , local_socket_(io_ctx, udp::endpoint(boost::asio::ip::address_v4::loopback(), 0))
 {
     dtls_ = std::make_unique<DtlsChannel>(io_ctx, server_addr, server_port, password);
 }
@@ -45,6 +45,20 @@ bool UdpRelay::start(uint16_t& local_port)
     NOTICE_LOG << "UDP relay started, local socket bound to "
                << local_socket_.local_endpoint().address().to_string()
                << ":" << local_socket_.local_endpoint().port();
+
+    // Loopback self-test: send a small UDP packet to ourselves
+    {
+        auto ep = local_socket_.local_endpoint();
+        const char test_marker[] = "\x00\x00\x00\x01\x7f\x00\x00\x01\x00\x35TEST";
+        boost::system::error_code sec;
+        local_socket_.send_to(boost::asio::buffer(test_marker, sizeof(test_marker) - 1), ep, 0, sec);
+        if (sec) {
+            NOTICE_LOG << "UDP loopback self-test send failed: " << sec.message();
+        } else {
+            NOTICE_LOG << "UDP loopback self-test packet sent to " << ep.address().to_string() << ":" << ep.port();
+        }
+    }
+
     return true;
 }
 

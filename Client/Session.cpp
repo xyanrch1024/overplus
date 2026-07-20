@@ -413,7 +413,7 @@ void Session::do_read_control()
     in_socket.async_read_some(boost::asio::buffer(trash),
         [this, self](boost::system::error_code ec, std::size_t) {
             if (ec) {
-                DEBUG_LOG << "UDP ASSOCIATE TCP control closed: " << ec.message();
+                NOTICE_LOG << "UDP ASSOCIATE TCP control closed: " << ec.message();
                 destroy();
                 return;
             }
