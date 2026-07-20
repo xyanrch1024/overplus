@@ -215,6 +215,7 @@ void MainWindow::onConnect()
     ui->UDP_STATUS->setStyleSheet(config.udp_enabled ?
         "color: green; font-weight: bold;" : "color: gray; font-weight: bold;");
 
+    server.start_dtls();
     server.start_accept();
     connectTime_ = std::chrono::steady_clock::now();
 }
