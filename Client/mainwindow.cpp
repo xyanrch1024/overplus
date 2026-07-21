@@ -93,43 +93,6 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
             padding: 0 5px;
             font-weight: bold;
         }
-        QPushButton#CONNECT_BUTTON {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 16px;
-            font-weight: bold;
-        }
-        QPushButton#CONNECT_BUTTON:hover { background-color: #45a049; }
-        QPushButton#CONNECT_BUTTON:disabled { background-color: #6b9e6d; }
-        QPushButton#DISCONNECT_BUTTON {
-            background-color: #f44336;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 16px;
-            font-weight: bold;
-        }
-        QPushButton#DISCONNECT_BUTTON:hover { background-color: #da190b; }
-        QPushButton#DISCONNECT_BUTTON:disabled { background-color: #e0908a; }
-        QPushButton#PING_BUTTON {
-            background-color: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 16px;
-        }
-        QPushButton#PING_BUTTON:hover { background-color: #0b7dda; }
-        QPushButton#PING_BUTTON:disabled { background-color: #6aa3d1; }
-        QPushButton#LOG_BUTTON {
-            background-color: #607D8B;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 16px;
-        }
-        QPushButton#LOG_BUTTON:hover { background-color: #546E7A; }
     )");
 
     ui->DISCONNECT_BUTTON->setEnabled(false);
