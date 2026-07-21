@@ -2,9 +2,11 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QDockWidget>
 #include <QPlainTextEdit>
 #include <QSystemTrayIcon>
 #include <QCloseEvent>
+#include <QResizeEvent>
 #include <QMenu>
 #include <QTimer>
 #include <chrono>
@@ -23,7 +25,7 @@ public:
     ~MainWindow();
 protected:
     void closeEvent(QCloseEvent* event) override;
-    bool eventFilter(QObject* obj, QEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 public slots:
     void onConnect();
     void onDisconnect();
@@ -39,9 +41,8 @@ public slots:
     void autoSave();
     void onAbout();
 private:
-    void positionLogWindow();
     Ui::MainWindow *ui;
-    QWidget* logWindow;
+    QDockWidget* logDock;
     QPlainTextEdit* logView;
     Server& server;
     QSystemTrayIcon* trayIcon;
