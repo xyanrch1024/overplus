@@ -149,7 +149,7 @@
           <property name="font">
            <font><bold>true</bold></font>
           </property>
-          <property name="text"><string>DISCONNECTED</string></property>
+          <property name="text"><string>● DISCONNECTED</string></property>
           <property name="minimumWidth"><number>80</number></property>
           <property name="alignment">
            <set>Qt::AlignRight|Qt::AlignVCenter</set>
