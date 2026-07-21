@@ -15,6 +15,7 @@ public:
     explicit LogPanel(QWidget* parent);
     void appendLog(const QString& line);
     void toggle();
+    void hide();
     bool isLogVisible() const { return visible_; }
 
 protected:
