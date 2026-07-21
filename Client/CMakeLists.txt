@@ -15,6 +15,7 @@ if (WIN32)
             Server.cpp
             Session.cpp
             UdpRelay.cpp
+            LogPanel.cpp
             mainwindow.cpp
             mainwindow.h
             mainwindow.ui

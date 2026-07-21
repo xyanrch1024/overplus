@@ -12,7 +12,6 @@ Server::Server(const std::string& address, const std::string& port)
     , acceptor_(io_context)
     , ssl_ctx(boost::asio::ssl::context::tlsv13)
 {
-    add_signals();
     ip::tcp::resolver resover(io_context);
     local_endpoint = *resover.resolve(address, port).begin();
 }
@@ -46,7 +45,6 @@ void Server::start_dtls()
             if (ok) {
                 NOTICE_LOG << "Shared DTLS connected";
                 dtls_ready_ = true;
-                std::lock_guard<std::mutex> lock(relays_mutex_);
                 for (auto& [sid, relay] : relays_) {
                     relay->flush_pending();
                 }
@@ -61,13 +59,11 @@ void Server::start_dtls()
 
 void Server::register_relay(uint16_t sid, UdpRelay* relay)
 {
-    std::lock_guard<std::mutex> lock(relays_mutex_);
     relays_[sid] = relay;
 }
 
 void Server::unregister_relay(uint16_t sid)
 {
-    std::lock_guard<std::mutex> lock(relays_mutex_);
     relays_.erase(sid);
 }
 
@@ -76,7 +72,6 @@ void Server::on_dtls_data(const char* data, size_t len)
     if (len < 2) return;
     uint16_t sid = (static_cast<uint8_t>(data[0]) << 8) | static_cast<uint8_t>(data[1]);
 
-    std::lock_guard<std::mutex> lock(relays_mutex_);
     auto it = relays_.find(sid);
     if (it != relays_.end()) {
         it->second->on_dtls_data(data + 2, len - 2);
@@ -137,18 +132,4 @@ void Server::stop_accept()
             acceptor_.close();
         }
     });
-}
-void Server::add_signals()
-{
-   /* signals.add(SIGINT);
-    signals.add(SIGTERM);
-#ifdef SIGQUIT
-    signals.add(SIGQUIT);
-#endif
-    signals.async_wait([this](const boost::system::error_code& ec, int sig) {
-        acceptor_.close();
-
-        NOTICE_LOG << "Server stopped..." << std::endl;
-        exit(1);
-    });*/
 }

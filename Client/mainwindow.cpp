@@ -1,10 +1,12 @@
 #include "mainwindow.h"
+#include "LogPanel.h"
 #include "./ui_mainwindow.h"
 #include <QMessageBox>
 #include <QApplication>
 #include <QPainter>
 #include <QPixmap>
 #include <QStyle>
+#include <QMoveEvent>
 #include "Shared/ConfigManage.h"
 #include "Shared/Version.h"
 #include "Shared/Log.h"
@@ -79,17 +81,7 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     setWindowTitle(QString("Overplus %1").arg(OVERPLUS_VERSION_STR));
     QApplication::setQuitOnLastWindowClosed(false);
 
-    logDock = new QDockWidget("Log", this);
-    logDock->setFeatures(QDockWidget::DockWidgetClosable);
-    logView = new QPlainTextEdit;
-    logView->setReadOnly(true);
-    logView->setMaximumBlockCount(500);
-    logView->setPlaceholderText("No log output yet");
-    logView->setFont(QFont("Courier New", 9));
-    logDock->setWidget(logView);
-    addDockWidget(Qt::RightDockWidgetArea, logDock);
-    resizeDocks({logDock}, {width()}, Qt::Horizontal);
-    logDock->hide();
+    logPanel = new LogPanel(this);
 
     ui->DISCONNECT_BUTTON->setEnabled(false);
 
@@ -151,7 +143,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::appendLog(const QString& line)
 {
-    logView->appendPlainText(line);
+    logPanel->appendLog(line);
 }
 
 void MainWindow::updateDuration()
@@ -311,10 +303,7 @@ void MainWindow::onPing()
 
 void MainWindow::onToggleLog()
 {
-    if (!logDock->isVisible()) {
-        resizeDocks({logDock}, {width()}, Qt::Horizontal);
-    }
-    logDock->setVisible(!logDock->isVisible());
+    logPanel->toggle();
 }
 
 void MainWindow::onCheckBoxClick(){
@@ -331,9 +320,13 @@ void MainWindow::closeEvent(QCloseEvent* event)
 void MainWindow::resizeEvent(QResizeEvent* event)
 {
     QMainWindow::resizeEvent(event);
-    if (logDock->isVisible()) {
-        resizeDocks({logDock}, {width()}, Qt::Horizontal);
-    }
+    // LogPanel tracks parent via eventFilter
+}
+
+void MainWindow::moveEvent(QMoveEvent* event)
+{
+    QMainWindow::moveEvent(event);
+    // LogPanel tracks parent via eventFilter
 }
 
 void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason)

@@ -2,8 +2,6 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QDockWidget>
-#include <QPlainTextEdit>
 #include <QSystemTrayIcon>
 #include <QCloseEvent>
 #include <QResizeEvent>
@@ -11,6 +9,8 @@
 #include <QTimer>
 #include <chrono>
 #include "Server.h"
+
+class LogPanel;
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -26,6 +26,7 @@ public:
 protected:
     void closeEvent(QCloseEvent* event) override;
     void resizeEvent(QResizeEvent* event) override;
+    void moveEvent(QMoveEvent* event) override;
 public slots:
     void onConnect();
     void onDisconnect();
@@ -42,8 +43,7 @@ public slots:
     void onAbout();
 private:
     Ui::MainWindow *ui;
-    QDockWidget* logDock;
-    QPlainTextEdit* logView;
+    LogPanel* logPanel;
     Server& server;
     QSystemTrayIcon* trayIcon;
     QMenu* trayMenu;

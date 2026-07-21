@@ -6,9 +6,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/signal_set.hpp>
-#include <atomic>
 #include <memory>
-#include <mutex>
 #include <unordered_map>
 using namespace boost::asio;
 
@@ -31,7 +29,6 @@ public:
     void unregister_relay(uint16_t sid);
 
 private:
-    void add_signals();
     void do_accept();
     void on_dtls_data(const char* data, size_t len);
 
@@ -45,8 +42,7 @@ private:
     ip::tcp::endpoint local_endpoint;
 
     std::unique_ptr<DtlsChannel> dtls_;
-    std::atomic<uint16_t> next_session_id_{1};
-    std::mutex relays_mutex_;
+    uint16_t next_session_id_{1};
     std::unordered_map<uint16_t, UdpRelay*> relays_;
     bool dtls_ready_ = false;
 };

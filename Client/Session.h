@@ -61,7 +61,7 @@ private:
     HttpRequest http_req;
     State state_ { HANDSHAKE };
     bool response_sent_ = false;
-    std::atomic<bool> destroyed_{false};
+    bool destroyed_ = false;
     boost::asio::ssl::context& ssl_ctx;
     boost::asio::ssl::stream<boost::asio::ip::tcp::socket> out_socket;
     Server& server_;
