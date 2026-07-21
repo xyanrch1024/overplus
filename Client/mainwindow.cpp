@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
 #include <QMessageBox>
+#include <QVBoxLayout>
 #include <QApplication>
 #include <QPainter>
 #include <QPixmap>
@@ -79,16 +80,21 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     setWindowTitle(QString("Overplus %1").arg(OVERPLUS_VERSION_STR));
     QApplication::setQuitOnLastWindowClosed(false);
 
-    logDock = new QDockWidget("Log", this);
-    logDock->setFeatures(QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetFloatable);
-    logView = new QPlainTextEdit;
-    logView->setReadOnly(true);
-    logView->setMaximumBlockCount(500);
-    logView->setPlaceholderText("No log output yet");
-    logView->setFont(QFont("Courier New", 9));
-    logDock->setWidget(logView);
-    addDockWidget(Qt::LeftDockWidgetArea, logDock);
-    logDock->hide();
+    logWindow = new QWidget(nullptr);
+    logWindow->setWindowTitle("Log");
+    logWindow->resize(size());
+    logWindow->setAttribute(Qt::WA_DeleteOnClose, false);
+    {
+        auto* layout = new QVBoxLayout(logWindow);
+        layout->setContentsMargins(0, 0, 0, 0);
+        logView = new QPlainTextEdit;
+        logView->setReadOnly(true);
+        logView->setMaximumBlockCount(500);
+        logView->setPlaceholderText("No log output yet");
+        logView->setFont(QFont("Courier New", 9));
+        layout->addWidget(logView);
+    }
+    logWindow->installEventFilter(this);
 
     ui->DISCONNECT_BUTTON->setEnabled(false);
 
@@ -310,7 +316,30 @@ void MainWindow::onPing()
 
 void MainWindow::onToggleLog()
 {
-    logDock->setVisible(!logDock->isVisible());
+    if (logWindow->isVisible()) {
+        logWindow->hide();
+    } else {
+        positionLogWindow();
+        logWindow->show();
+        logWindow->activateWindow();
+    }
+}
+
+void MainWindow::positionLogWindow()
+{
+    QPoint pos = mapToGlobal(QPoint(0, 0));
+    logWindow->move(pos.x() + width(), pos.y());
+    logWindow->resize(width(), height());
+}
+
+bool MainWindow::eventFilter(QObject* obj, QEvent* event)
+{
+    if (obj == logWindow && event->type() == QEvent::Close) {
+        logWindow->hide();
+        event->ignore();
+        return true;
+    }
+    return QMainWindow::eventFilter(obj, event);
 }
 
 void MainWindow::onCheckBoxClick(){
@@ -320,6 +349,7 @@ void MainWindow::onCheckBoxClick(){
 void MainWindow::closeEvent(QCloseEvent* event)
 {
     autoSave();
+    logWindow->close();
     hide();
     event->ignore();
 }
@@ -341,6 +371,8 @@ void MainWindow::onShowWindow()
 void MainWindow::onQuit()
 {
     trayIcon->setVisible(false);
+    delete logWindow;
+    logWindow = nullptr;
     QApplication::quit();
 }
 
