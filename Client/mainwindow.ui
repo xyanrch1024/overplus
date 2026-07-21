@@ -174,12 +174,12 @@
           </widget>
          </item>
         <item row="2" column="0">
-         <widget class="QLabel" name="label_up">
-          <property name="text"><string>Upload</string></property>
+         <widget class="QLabel" name="label_speed">
+          <property name="text"><string>Speed</string></property>
          </widget>
         </item>
          <item row="2" column="1">
-          <widget class="QLabel" name="UPLOAD_LABEL">
+          <widget class="QLabel" name="SPEED_LABEL">
            <property name="font">
             <font><bold>true</bold></font>
            </property>
@@ -191,30 +191,12 @@
            </property>
           </widget>
          </item>
-        <item row="3" column="0">
-         <widget class="QLabel" name="label_down">
-          <property name="text"><string>Download</string></property>
-         </widget>
-        </item>
-         <item row="3" column="1">
-          <widget class="QLabel" name="DOWNLOAD_LABEL">
-           <property name="font">
-            <font><bold>true</bold></font>
-           </property>
-           <property name="styleSheet"><string>color: rgb(0, 180, 0);</string></property>
-           <property name="text"><string>--</string></property>
-           <property name="minimumWidth"><number>80</number></property>
-           <property name="alignment">
-            <set>Qt::AlignRight|Qt::AlignVCenter</set>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="0">
+         <item row="3" column="0">
           <widget class="QLabel" name="label_total">
            <property name="text"><string>Total</string></property>
           </widget>
          </item>
-         <item row="4" column="1">
+         <item row="3" column="1">
           <widget class="QLabel" name="TOTAL_LABEL">
            <property name="font">
             <font><bold>true</bold></font>
@@ -227,12 +209,12 @@
            </property>
           </widget>
          </item>
-         <item row="5" column="0">
+         <item row="4" column="0">
           <widget class="QLabel" name="label_sessions">
            <property name="text"><string>Sessions</string></property>
           </widget>
          </item>
-         <item row="5" column="1">
+         <item row="4" column="1">
           <widget class="QLabel" name="SESSIONS_LABEL">
            <property name="font">
             <font><bold>true</bold></font>
@@ -245,12 +227,12 @@
            </property>
           </widget>
          </item>
-         <item row="6" column="0">
+         <item row="5" column="0">
           <widget class="QLabel" name="label_duration">
            <property name="text"><string>Duration</string></property>
           </widget>
          </item>
-          <item row="6" column="1">
+          <item row="5" column="1">
            <widget class="QLabel" name="DURATION_LABEL">
             <property name="font">
              <font><bold>true</bold></font>
@@ -263,12 +245,12 @@
             </property>
            </widget>
           </item>
-          <item row="7" column="0">
+          <item row="6" column="0">
            <widget class="QLabel" name="label_udp_status">
-            <property name="text"><string>UDP</string></property>
-           </widget>
-          </item>
-          <item row="7" column="1">
+             <property name="text"><string>UDP</string></property>
+            </widget>
+           </item>
+           <item row="6" column="1">
            <widget class="QLabel" name="UDP_STATUS">
             <property name="font">
              <font><bold>true</bold></font>

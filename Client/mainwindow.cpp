@@ -188,8 +188,7 @@ void MainWindow::autoSave()
 void MainWindow::updateStats()
 {
     auto [up, down] = ProxyStats::instance().getAndResetDelta();
-    ui->UPLOAD_LABEL->setText(ARROW_UP + " " + formatSpeed(up));
-    ui->DOWNLOAD_LABEL->setText(ARROW_DOWN + " " + formatSpeed(down));
+    ui->SPEED_LABEL->setText(ARROW_UP + " " + formatSpeed(up) + "  " + ARROW_DOWN + " " + formatSpeed(down));
 
     auto [total_up, total_down] = ProxyStats::instance().getTotal();
     ui->TOTAL_LABEL->setText(ARROW_UP + " " + formatTotal(total_up) + "  " + ARROW_DOWN + " " + formatTotal(total_down));
