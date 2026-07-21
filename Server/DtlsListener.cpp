@@ -64,10 +64,12 @@ void DtlsListener::stop()
     socket_.cancel(ec);
     socket_.close(ec);
 
-    for (auto& [ep, session] : sessions_) {
+    // Copy sessions to avoid iterator invalidation (session->stop() calls remove_session)
+    auto sessions_copy = std::move(sessions_);
+    sessions_.clear();
+    for (auto& [ep, session] : sessions_copy) {
         session->stop();
     }
-    sessions_.clear();
 
     if (dtls_ctx_) {
         SSL_CTX_free(dtls_ctx_);

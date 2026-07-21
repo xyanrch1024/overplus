@@ -3,6 +3,7 @@
 #include <boost/asio.hpp>
 #include <boost/core/noncopyable.hpp>
 #include <functional>
+#include <map>
 #include <queue>
 #include <string>
 
@@ -29,5 +30,6 @@ private:
     DtlsChannel* dtls_ = nullptr;
     uint16_t session_id_ = 0;
     std::queue<std::string> pending_frames_;
+    std::map<std::string, boost::asio::ip::udp::endpoint> target_to_sender_;
     bool running_ = false;
 };

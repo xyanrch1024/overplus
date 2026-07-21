@@ -70,9 +70,12 @@ void DtlsChannel::stop()
 void DtlsChannel::do_handshake()
 {
     if (!ssl_ || !running_ || handshake_done_) {
+        DEBUG_LOG << "DTLS do_handshake skipped: ssl_=" << (ssl_ ? "ok" : "null")
+                  << " running_=" << running_ << " done=" << handshake_done_;
         return;
     }
 
+    DEBUG_LOG << "DTLS do_handshake calling SSL_do_handshake...";
     int ret = ::SSL_do_handshake(ssl_);
     drain_write_bio();
 
@@ -88,18 +91,23 @@ void DtlsChannel::do_handshake()
             if (duration.count() == 0) {
                 duration = std::chrono::milliseconds(500);
             }
-            NOTICE_LOG << "DTLS handshake: timeout in " << duration.count() << "us";
+            NOTICE_LOG << "DTLS handshake: WANT_READ, retry in " << duration.count() << "us";
             timer_.expires_after(duration);
             timer_.async_wait([this](boost::system::error_code ec) {
                 if (!ec && running_) handle_timeout();
             });
         } else if (err == SSL_ERROR_WANT_WRITE) {
+            NOTICE_LOG << "DTLS handshake: WANT_WRITE, retry in 100ms";
             timer_.expires_after(std::chrono::milliseconds(100));
             timer_.async_wait([this](boost::system::error_code ec) {
                 if (!ec && running_) do_handshake();
             });
         } else {
-            ERROR_LOG << "DTLS handshake failed: " << err;
+            ERROR_LOG << "DTLS handshake failed with err=" << err;
+            unsigned long sslerr = ERR_get_error();
+            char errbuf[256];
+            ERR_error_string_n(sslerr, errbuf, sizeof(errbuf));
+            ERROR_LOG << "DTLS SSL error string: " << errbuf;
             if (on_handshake_) on_handshake_(false);
         }
     } else {
@@ -131,8 +139,13 @@ void DtlsChannel::drain_write_bio()
 
 void DtlsChannel::handle_timeout()
 {
-    if (!ssl_ || !running_) return;
+    if (!ssl_ || !running_) {
+        DEBUG_LOG << "DTLS handle_timeout skipped: ssl_=" << (ssl_ ? "ok" : "null")
+                  << " running_=" << running_;
+        return;
+    }
 
+    DEBUG_LOG << "DTLS handle_timeout called, handshake_done_=" << handshake_done_;
     ::DTLSv1_handle_timeout(ssl_);
     do_handshake();
 }

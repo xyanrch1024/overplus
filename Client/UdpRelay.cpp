@@ -100,8 +100,16 @@ void UdpRelay::on_dtls_data(const char* data, size_t len)
 
     pkt += frame.payload;
 
+    std::string target_key = frame.address + ":" + std::to_string(frame.port);
+    auto sit = target_to_sender_.find(target_key);
+    udp::endpoint app_ep = sender_ep_;
+    if (sit != target_to_sender_.end()) {
+        app_ep = sit->second;
+        target_to_sender_.erase(sit);
+    }
+
     boost::system::error_code sec;
-    local_socket_.send_to(boost::asio::buffer(pkt), sender_ep_, 0, sec);
+    local_socket_.send_to(boost::asio::buffer(pkt), app_ep, 0, sec);
     if (sec) {
         NOTICE_LOG << "UDP relay send_to app failed: " << sec.message();
     }
@@ -178,6 +186,8 @@ void UdpRelay::do_receive_local()
                 do_receive_local();
                 return;
             }
+
+            target_to_sender_[target_addr + ":" + std::to_string(target_port)] = sender_ep_;
 
             std::string frame;
             if (atyp == 0x03) {

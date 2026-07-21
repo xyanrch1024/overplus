@@ -153,7 +153,7 @@ void DtlsServerSession::try_read_app_data()
             }
         } else if (state_ == PROXY) {
             std::string data(buf, n);
-            NOTICE_LOG << "DTLS PROXY recv " << n << " bytes";
+            NOTICE_LOG << "DTLS PROXY recv " << n << " bytes from client, state=" << (int)state_;
 
             if (data.size() < 2) {
                 DEBUG_LOG << "DTLS PROXY: too short for session_id";
@@ -212,6 +212,14 @@ void DtlsServerSession::start_auth()
 void DtlsServerSession::start_proxy()
 {
     state_ = PROXY;
+    boost::system::error_code ec;
+    target_socket_.bind(udp::endpoint(udp::v4(), 0), ec);
+    if (ec) {
+        NOTICE_LOG << "DTLS bind target socket: " << ec.message();
+    } else {
+        NOTICE_LOG << "DTLS target socket bound to port "
+                   << target_socket_.local_endpoint().port();
+    }
     do_read_target();
 }
 
@@ -249,11 +257,16 @@ void DtlsServerSession::do_send_to_target(const udp::endpoint& target_ep, const 
               << target_ep.address().to_string() << ":" << target_ep.port()
               << " session_id=" << session_id;
 
+    NOTICE_LOG << "DTLS async_send_to to target: "
+               << target_ep_.address().to_string() << ":" << target_ep_.port()
+               << " payload=" << payload.size() << " bytes";
     target_socket_.async_send_to(
         boost::asio::buffer(payload), target_ep_,
-        [this, self](boost::system::error_code ec, std::size_t) {
+        [this, self](boost::system::error_code ec, std::size_t sent) {
             if (ec) {
-                DEBUG_LOG << "DTLS send to target failed: " << ec.message();
+                ERROR_LOG << "DTLS send to target failed: " << ec.message();
+            } else {
+                NOTICE_LOG << "DTLS send to target OK, sent " << sent << " bytes";
             }
         });
 }
@@ -270,7 +283,7 @@ void DtlsServerSession::do_read_target()
         [this, self, sender_ep](boost::system::error_code ec, std::size_t len) {
             if (ec) {
                 if (ec != boost::asio::error::operation_aborted) {
-                    DEBUG_LOG << "DTLS target recv error: " << ec.message();
+                    ERROR_LOG << "DTLS target recv error: " << ec.message();
                 }
                 if (ec != boost::asio::error::operation_aborted) {
                     do_read_target();
@@ -278,10 +291,16 @@ void DtlsServerSession::do_read_target()
                 return;
             }
 
+            NOTICE_LOG << "DTLS target recv " << len << " bytes from "
+                       << sender_ep->address().to_string() << ":" << sender_ep->port();
+
             uint16_t session_id = 0;
             auto it = target_to_session_.find(*sender_ep);
             if (it != target_to_session_.end()) {
                 session_id = it->second;
+                NOTICE_LOG << "DTLS found session_id=" << session_id << " for endpoint";
+            } else {
+                NOTICE_LOG << "DTLS no session_id found for endpoint, using 0";
             }
 
             std::string frame = UdpFrame::generate(*sender_ep,
@@ -298,14 +317,23 @@ void DtlsServerSession::do_read_target()
 
 void DtlsServerSession::send_to_client(const std::string& data)
 {
-    if (!ssl_ || state_ == DESTROY) return;
+    if (!ssl_ || state_ == DESTROY) {
+        NOTICE_LOG << "DTLS send_to_client skipped: ssl_=" << (ssl_ ? "ok" : "null")
+                  << " state=" << (int)state_;
+        return;
+    }
 
-    NOTICE_LOG << "DTLS send_to_client " << data.size() << " bytes";
+    NOTICE_LOG << "DTLS send_to_client " << data.size() << " bytes, state=" << (int)state_;
 
     int ret = SSL_write(ssl_, data.data(), static_cast<int>(data.size()));
+    NOTICE_LOG << "DTLS SSL_write returned " << ret;
     if (ret <= 0) {
         int err = SSL_get_error(ssl_, ret);
-        DEBUG_LOG << "DTLS SSL_write error: " << err;
+        ERROR_LOG << "DTLS SSL_write error: " << err;
+        unsigned long sslerr = ERR_get_error();
+        char errbuf[256];
+        ERR_error_string_n(sslerr, errbuf, sizeof(errbuf));
+        ERROR_LOG << "DTLS SSL error string: " << errbuf;
         return;
     }
 
