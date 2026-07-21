@@ -82,6 +82,8 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     QApplication::setQuitOnLastWindowClosed(false);
 
     logPanel = new LogPanel(this);
+    logPanel->hide();
+    ui->mainLayout->addWidget(logPanel);
 
     ui->DISCONNECT_BUTTON->setEnabled(false);
 
@@ -320,13 +322,11 @@ void MainWindow::closeEvent(QCloseEvent* event)
 void MainWindow::resizeEvent(QResizeEvent* event)
 {
     QMainWindow::resizeEvent(event);
-    // LogPanel tracks parent via eventFilter
 }
 
 void MainWindow::moveEvent(QMoveEvent* event)
 {
     QMainWindow::moveEvent(event);
-    // LogPanel tracks parent via eventFilter
 }
 
 void MainWindow::onTrayActivated(QSystemTrayIcon::ActivationReason reason)
