@@ -254,8 +254,8 @@ void MainWindow::onConnect()
 {
     ui->CONNECT_BUTTON->setEnabled(false);
     ui->DISCONNECT_BUTTON->setEnabled(true);
-    ui->CONNECTION_STATUS->setText("● CONNECTED");
-    ui->CONNECTION_STATUS->setStyleSheet("color: green; font-weight: bold;");
+    ui->CONNECTION_STATUS->setText("CONNECTED");
+    ui->STATUS_DOT->setStyleSheet("background-color: #4CAF50; border-radius: 5px;");
     trayIcon->setIcon(createTrayIcon(QColor(0, 180, 0)));
 
     auto& config = ConfigManage::instance().client_cfg;
@@ -285,8 +285,8 @@ void MainWindow::onDisconnect()
     server.stop_accept();
     ui->CONNECT_BUTTON->setEnabled(true);
     ui->DISCONNECT_BUTTON->setEnabled(false);
-    ui->CONNECTION_STATUS->setText("● DISCONNECTED");
-    ui->CONNECTION_STATUS->setStyleSheet("color: red; font-weight: bold;");
+    ui->CONNECTION_STATUS->setText("DISCONNECTED");
+    ui->STATUS_DOT->setStyleSheet("background-color: #f44336; border-radius: 5px;");
     ui->UDP_STATUS->setText("--");
     ui->UDP_STATUS->setStyleSheet("color: gray; font-weight: bold;");
     ui->DURATION_LABEL->setText("--");

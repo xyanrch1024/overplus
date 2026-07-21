@@ -144,18 +144,34 @@
          <property name="text"><string>Status</string></property>
         </widget>
        </item>
-        <item row="0" column="1">
-         <widget class="QLabel" name="CONNECTION_STATUS">
-          <property name="font">
-           <font><bold>true</bold></font>
-          </property>
-          <property name="text"><string>● DISCONNECTED</string></property>
-          <property name="minimumWidth"><number>80</number></property>
-          <property name="alignment">
-           <set>Qt::AlignRight|Qt::AlignVCenter</set>
-          </property>
-         </widget>
-        </item>
+         <item row="0" column="1">
+          <layout class="QHBoxLayout" name="statusLayout">
+           <item>
+            <widget class="QLabel" name="STATUS_DOT">
+             <property name="minimumSize">
+              <size><width>10</width><height>10</height></size>
+             </property>
+             <property name="maximumSize">
+              <size><width>10</width><height>10</height></size>
+             </property>
+             <property name="styleSheet"><string>background-color: red; border-radius: 5px;</string></property>
+             <property name="text"><string/></property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="CONNECTION_STATUS">
+             <property name="font">
+              <font><bold>true</bold></font>
+             </property>
+             <property name="text"><string>DISCONNECTED</string></property>
+             <property name="minimumWidth"><number>80</number></property>
+             <property name="alignment">
+              <set>Qt::AlignLeft|Qt::AlignVCenter</set>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
        <item row="1" column="0">
         <widget class="QLabel" name="label_latency">
          <property name="text"><string>Latency</string></property>
