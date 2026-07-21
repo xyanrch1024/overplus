@@ -1,5 +1,4 @@
 #include "mainwindow.h"
-#include "LogPanel.h"
 #include "./ui_mainwindow.h"
 #include <QMessageBox>
 #include <QApplication>
@@ -81,10 +80,6 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     setWindowTitle(QString("Overplus %1").arg(OVERPLUS_VERSION_STR));
     QApplication::setQuitOnLastWindowClosed(false);
 
-    logPanel = new LogPanel(this);
-    logPanel->hide();
-    ui->mainLayout->addWidget(logPanel);
-
     ui->DISCONNECT_BUTTON->setEnabled(false);
 
     trayIcon = new QSystemTrayIcon(this);
@@ -145,7 +140,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::appendLog(const QString& line)
 {
-    logPanel->appendLog(line);
+    ui->LOG_VIEW->appendPlainText(line);
 }
 
 void MainWindow::updateDuration()
@@ -305,7 +300,7 @@ void MainWindow::onPing()
 
 void MainWindow::onToggleLog()
 {
-    logPanel->toggle();
+    ui->LOG_VIEW->setVisible(!ui->LOG_VIEW->isVisible());
 }
 
 void MainWindow::onCheckBoxClick(){

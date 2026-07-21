@@ -10,8 +10,6 @@
 #include <chrono>
 #include "Server.h"
 
-class LogPanel;
-
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -43,7 +41,6 @@ public slots:
     void onAbout();
 private:
     Ui::MainWindow *ui;
-    LogPanel* logPanel;
     Server& server;
     QSystemTrayIcon* trayIcon;
     QMenu* trayMenu;
