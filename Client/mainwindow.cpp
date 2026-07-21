@@ -96,7 +96,7 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     connect(ui->DISCONNECT_BUTTON, SIGNAL(clicked()), this, SLOT(onDisconnect()));
     connect(ui->PING_BUTTON, SIGNAL(clicked()), this, SLOT(onPing()));
     connect(ui->LOG_BUTTON, SIGNAL(clicked()), this, SLOT(onToggleLog()));
-    connect(ui->checkBox, SIGNAL(clicked()), this, SLOT(onCheckBoxClick()));
+    connect(ui->PWD_TOGGLE, SIGNAL(clicked()), this, SLOT(onCheckBoxClick()));
     connect(showAction, SIGNAL(triggered()), this, SLOT(onShowWindow()));
     connect(quitAction, SIGNAL(triggered()), this, SLOT(onQuit()));
     connect(trayIcon, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), this, SLOT(onTrayActivated(QSystemTrayIcon::ActivationReason)));
@@ -304,7 +304,7 @@ void MainWindow::onToggleLog()
 }
 
 void MainWindow::onCheckBoxClick(){
-    ui->HOST_PASSWD->setEchoMode(ui->checkBox->checkState() == Qt::Checked ? QLineEdit::Normal : QLineEdit::Password );
+    ui->HOST_PASSWD->setEchoMode(ui->PWD_TOGGLE->isChecked() ? QLineEdit::Normal : QLineEdit::Password );
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)
