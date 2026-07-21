@@ -7,7 +7,8 @@
 #include <queue>
 #include <string>
 
-class UdpRelay : private boost::noncopyable {
+class UdpRelay : public std::enable_shared_from_this<UdpRelay>,
+                  private boost::noncopyable {
 public:
     UdpRelay(boost::asio::io_context& io_ctx);
     ~UdpRelay();

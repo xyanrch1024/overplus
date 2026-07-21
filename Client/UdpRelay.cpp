@@ -1,8 +1,8 @@
 #include "UdpRelay.h"
 #include "Protocol/UdpFrame.h"
+#include "Protocol/socks5/UdpRequest.h"
 #include "Shared/Log.h"
 #include "Shared/ProxyStats.h"
-#include <Protocol/socks5/socks5.h>
 #include <cstring>
 
 using boost::asio::ip::udp;
@@ -75,30 +75,12 @@ void UdpRelay::on_dtls_data(const char* data, size_t len)
 
     ProxyStats::instance().addDownstreamDelta(len);
 
-    std::string pkt;
-    pkt += char(0x00);
-    pkt += char(0x00);
-    pkt += char(0x00);
-
-    if (frame.addr_type == UdpFrame::ADDR_IPV4) {
-        pkt += char(0x01);
-        pkt += frame.address;
-        pkt += char(frame.port >> 8);
-        pkt += char(frame.port & 0xFF);
-    } else if (frame.addr_type == UdpFrame::ADDR_DOMAIN) {
-        pkt += char(0x03);
-        pkt += char(frame.address.size());
-        pkt += frame.address;
-        pkt += char(frame.port >> 8);
-        pkt += char(frame.port & 0xFF);
-    } else if (frame.addr_type == UdpFrame::ADDR_IPV6) {
-        pkt += char(0x04);
-        pkt += frame.address;
-        pkt += char(frame.port >> 8);
-        pkt += char(frame.port & 0xFF);
-    }
-
-    pkt += frame.payload;
+    UdpRequest udp_resp;
+    udp_resp.addr_type = frame.addr_type;
+    udp_resp.dst_addr = frame.address;
+    udp_resp.dst_port = frame.port;
+    udp_resp.payload = frame.payload;
+    std::string pkt = udp_resp.serialize();
 
     std::string target_key = frame.address + ":" + std::to_string(frame.port);
     auto sit = target_to_sender_.find(target_key);
@@ -119,105 +101,51 @@ void UdpRelay::do_receive_local()
 {
     local_socket_.async_receive_from(
         boost::asio::buffer(recv_buf_), sender_ep_,
-        [this](boost::system::error_code ec, std::size_t len) {
-            if (!running_) {
+        [self = shared_from_this()](boost::system::error_code ec, std::size_t len) {
+            if (!self->running_) {
                 return;
             }
             if (ec) {
                 NOTICE_LOG << "UDP local recv error: " << ec.message();
-                do_receive_local();
+                self->do_receive_local();
                 return;
             }
             if (len < 4) {
-                do_receive_local();
+                self->do_receive_local();
                 return;
             }
 
             ProxyStats::instance().addUpstreamDelta(len);
             NOTICE_LOG << "UDP relay --> server: " << len << " bytes from "
-                      << sender_ep_.address().to_string() << ":" << sender_ep_.port()
-                      << " session_id=" << session_id_;
+                      << self->sender_ep_.address().to_string() << ":" << self->sender_ep_.port()
+                      << " session_id=" << self->session_id_;
 
-            const char* p = recv_buf_.data();
-            if (p[0] != 0x00 || p[1] != 0x00 || p[2] != 0x00) {
-                do_receive_local();
+            UdpRequest udp_req;
+            if (!udp_req.parse(self->recv_buf_.data(), len)) {
+                self->do_receive_local();
                 return;
             }
 
-            uint8_t atyp = static_cast<uint8_t>(p[3]);
-            p += 4;
-            len -= 4;
-
-            std::string target_addr;
-            uint16_t target_port = 0;
-            const char* payload = nullptr;
-            size_t payload_len = 0;
-
-            switch (atyp) {
-            case 0x01: {
-                if (len < 6) { do_receive_local(); return; }
-                target_addr.assign(p, 4);
-                target_port = (static_cast<uint8_t>(p[4]) << 8) | static_cast<uint8_t>(p[5]);
-                payload = p + 6;
-                payload_len = len - 6;
-                break;
-            }
-            case 0x03: {
-                if (len < 1) { do_receive_local(); return; }
-                uint8_t dlen = static_cast<uint8_t>(p[0]);
-                p++;
-                len--;
-                if (len < static_cast<size_t>(dlen) + 2) { do_receive_local(); return; }
-                target_addr.assign(p, dlen);
-                target_port = (static_cast<uint8_t>(p[dlen]) << 8) | static_cast<uint8_t>(p[dlen + 1]);
-                payload = p + dlen + 2;
-                payload_len = len - dlen - 2;
-                break;
-            }
-            case 0x04: {
-                if (len < 18) { do_receive_local(); return; }
-                target_addr.assign(p, 16);
-                target_port = (static_cast<uint8_t>(p[16]) << 8) | static_cast<uint8_t>(p[17]);
-                payload = p + 18;
-                payload_len = len - 18;
-                break;
-            }
-            default:
-                do_receive_local();
-                return;
-            }
-
-            target_to_sender_[target_addr + ":" + std::to_string(target_port)] = sender_ep_;
+            self->target_to_sender_[udp_req.dst_addr + ":" + std::to_string(udp_req.dst_port)] = self->sender_ep_;
 
             std::string frame;
-            if (atyp == 0x03) {
-                frame = UdpFrame::generate(target_addr, target_port,
-                                           std::string(payload, payload_len));
+            if (udp_req.addr_type == 0x03) {
+                frame = UdpFrame::generate(udp_req.dst_addr, udp_req.dst_port, udp_req.payload);
             } else {
-                udp::endpoint ep;
-                if (atyp == 0x01) {
-                    boost::asio::ip::address_v4::bytes_type bytes;
-                    std::memcpy(bytes.data(), target_addr.data(), 4);
-                    ep = udp::endpoint(boost::asio::ip::address_v4(bytes), target_port);
-                } else {
-                    boost::asio::ip::address_v6::bytes_type bytes;
-                    std::memcpy(bytes.data(), target_addr.data(), 16);
-                    ep = udp::endpoint(boost::asio::ip::address_v6(bytes), target_port);
-                }
-                frame = UdpFrame::generate(ep, std::string(payload, payload_len));
+                frame = UdpFrame::generate(udp_req.dest_endpoint(), udp_req.payload);
             }
 
-            if (dtls_ && dtls_->is_ready()) {
+            if (self->dtls_ && self->dtls_->is_ready()) {
                 std::string pkt;
-                pkt += char(session_id_ >> 8);
-                pkt += char(session_id_ & 0xFF);
+                pkt += char(self->session_id_ >> 8);
+                pkt += char(self->session_id_ & 0xFF);
                 pkt += frame;
-                dtls_->send(pkt);
+                self->dtls_->send(pkt);
             } else {
-                NOTICE_LOG << "UDP relay queuing pending frame, session_id=" << session_id_;
-                pending_frames_.push(std::move(frame));
+                NOTICE_LOG << "UDP relay queuing pending frame, session_id=" << self->session_id_;
+                self->pending_frames_.push(std::move(frame));
             }
 
-            do_receive_local();
+            self->do_receive_local();
         });
 }
