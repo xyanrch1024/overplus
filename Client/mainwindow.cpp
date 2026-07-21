@@ -79,6 +79,17 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
     setWindowTitle(QString("Overplus %1").arg(OVERPLUS_VERSION_STR));
     QApplication::setQuitOnLastWindowClosed(false);
 
+    logDock = new QDockWidget("Log", this);
+    logDock->setFeatures(QDockWidget::DockWidgetClosable | QDockWidget::DockWidgetFloatable);
+    logView = new QPlainTextEdit;
+    logView->setReadOnly(true);
+    logView->setMaximumBlockCount(500);
+    logView->setPlaceholderText("No log output yet");
+    logView->setFont(QFont("Courier New", 9));
+    logDock->setWidget(logView);
+    addDockWidget(Qt::LeftDockWidgetArea, logDock);
+    logDock->hide();
+
     ui->DISCONNECT_BUTTON->setEnabled(false);
 
     trayIcon = new QSystemTrayIcon(this);
@@ -139,7 +150,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::appendLog(const QString& line)
 {
-    ui->LOG_VIEW->appendPlainText(line);
+    logView->appendPlainText(line);
 }
 
 void MainWindow::updateDuration()
@@ -299,8 +310,7 @@ void MainWindow::onPing()
 
 void MainWindow::onToggleLog()
 {
-    bool visible = ui->LOG_VIEW->isVisible();
-    ui->LOG_VIEW->setVisible(!visible);
+    logDock->setVisible(!logDock->isVisible());
 }
 
 void MainWindow::onCheckBoxClick(){

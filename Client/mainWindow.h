@@ -2,6 +2,8 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QDockWidget>
+#include <QPlainTextEdit>
 #include <QSystemTrayIcon>
 #include <QCloseEvent>
 #include <QMenu>
@@ -38,6 +40,8 @@ public slots:
     void onAbout();
 private:
     Ui::MainWindow *ui;
+    QDockWidget* logDock;
+    QPlainTextEdit* logView;
     Server& server;
     QSystemTrayIcon* trayIcon;
     QMenu* trayMenu;

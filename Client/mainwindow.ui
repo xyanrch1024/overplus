@@ -311,26 +311,6 @@
       </layout>
      </widget>
     </item>
-    <item>
-     <widget class="QPlainTextEdit" name="LOG_VIEW">
-      <property name="readOnly"><bool>true</bool></property>
-      <property name="maximumBlockCount"><number>500</number></property>
-      <property name="placeholderText"><string>No log output yet</string></property>
-      <property name="minimumSize">
-       <size>
-        <width>0</width>
-        <height>160</height>
-       </size>
-      </property>
-      <property name="font">
-       <font>
-        <pointsize>9</pointsize>
-        <family>Courier New</family>
-       </font>
-      </property>
-      <property name="visible"><bool>false</bool></property>
-     </widget>
-    </item>
    </layout>
   </widget>
    <widget class="QMenuBar" name="menubar">
