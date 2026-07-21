@@ -113,7 +113,14 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
          ui->LOCAL_PORT->setText(QString::fromStdString(config.local_port.empty() ? "1080" : config.local_port));
          ui->DTLS_PORT->setText(QString::fromStdString(config.dtls_port.empty() ? "8443" : config.dtls_port));
          ui->UDP_CHECKBOX->setChecked(config.udp_enabled);
+         ui->label_dtls_port->setEnabled(config.udp_enabled);
+         ui->DTLS_PORT->setEnabled(config.udp_enabled);
     }
+    connect(ui->UDP_CHECKBOX, &QCheckBox::stateChanged, this, [this](int state) {
+        bool on = (state == Qt::Checked);
+        ui->label_dtls_port->setEnabled(on);
+        ui->DTLS_PORT->setEnabled(on);
+    });
     statusBar()->showMessage(QString("Overplus %1").arg(OVERPLUS_VERSION_STR));
 
     logger::setOutput([this](std::string&& buf) {
