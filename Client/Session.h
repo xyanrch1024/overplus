@@ -4,6 +4,7 @@
 #include <Protocol/http/http.h>
 #include <Protocol/socks5/socks5.h>
 #include <boost/asio.hpp>
+#include <boost/asio/buffer.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/beast/core.hpp>
