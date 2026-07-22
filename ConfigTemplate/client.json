@@ -7,5 +7,6 @@
   "user_name":"user1",
   "password": "password1",
   "udp_enabled": true,
-  "dtls_port": "8443"
+  "dtls_port": "8443",
+  "useWebSocket": false
 }

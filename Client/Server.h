@@ -30,6 +30,8 @@ public:
 
 private:
     void do_accept();
+    void do_accept_tls();
+    void do_accept_ws();
     void on_dtls_data(const char* data, size_t len);
 
     boost::asio::io_context io_context;
@@ -38,12 +40,14 @@ private:
     boost::asio::ip::tcp::acceptor acceptor_;
 
     boost::asio::ssl::context ssl_ctx;
-    std::shared_ptr<Session> new_session;
+    std::shared_ptr<TlsClientSession> tls_session_;
+    std::shared_ptr<WsClientSession> ws_session_;
     ip::tcp::endpoint local_endpoint;
 
     std::unique_ptr<DtlsChannel> dtls_;
     uint16_t next_session_id_{1};
     std::unordered_map<uint16_t, UdpRelay*> relays_;
     bool dtls_ready_ = false;
+    bool useWebSocket_ = false;
 };
 #endif

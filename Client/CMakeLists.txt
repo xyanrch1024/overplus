@@ -13,7 +13,6 @@ if (WIN32)
     set(SRCS
             Server.h
             Server.cpp
-            Session.cpp
             UdpRelay.cpp
             mainwindow.cpp
             mainwindow.h
@@ -33,7 +32,6 @@ else ()
     set(SRCS
             Server.h
             Server.cpp
-            Session.cpp
             UdpRelay.cpp
             )
     add_executable(overplus_client CliMain.cpp ${SRCS})

@@ -71,6 +71,7 @@ struct ClientConfig {
     std::string text_password;
     bool udp_enabled = false;
     std::string dtls_port;
+    bool useWebSocket = false;
 
     void populate(boost::property_tree::ptree&);
     void setPassword(std::string&psswd);

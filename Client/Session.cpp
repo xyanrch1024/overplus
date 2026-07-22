@@ -12,17 +12,19 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ssl/verify_mode.hpp>
 #include <cstddef>
-Session::Session(boost::asio::io_context& context, boost::asio::ssl::context& ssl, Server& server)
+#include <type_traits>
+
+template<class T>
+Session<T>::Session(boost::asio::io_context& context, boost::asio::ssl::context& ssl, Server& server)
     : context_(context)
     , in_socket(context_)
     , resolver_(context_)
     , in_buf(MAX_BUFF_SIZE)
     , out_buf(MAX_BUFF_SIZE)
     , ssl_ctx(ssl)
-    , out_socket(context_, ssl_ctx)
+    , out_socket(SocketFactory<T>::make(context_, ssl))
     , server_(server)
 {
-    out_socket.set_verify_mode(boost::asio::ssl::verify_none);
     auto& config = ConfigManage::instance().client_cfg;
     remote_host = config.remote_addr;
     remote_port = config.remote_port;
@@ -30,9 +32,40 @@ Session::Session(boost::asio::io_context& context, boost::asio::ssl::context& ss
     password_ = config.password;
 }
 
-void Session::start()
+template<class T>
+void Session<T>::write_to_upstream(const char* data, size_t len, WriteHandler handler)
 {
-    auto self(shared_from_this());
+    if constexpr (std::is_same_v<T, WsSocket>) {
+        out_socket.async_write(boost::asio::buffer(data, len), std::move(handler));
+    } else {
+        boost::asio::async_write(out_socket, boost::asio::buffer(data, len), std::move(handler));
+    }
+}
+
+template<class T>
+void Session<T>::write_to_upstream_buf(size_t len, WriteHandler handler)
+{
+    if constexpr (std::is_same_v<T, WsSocket>) {
+        out_socket.async_write(boost::asio::buffer(out_buf, len), std::move(handler));
+    } else {
+        boost::asio::async_write(out_socket, boost::asio::buffer(out_buf, len), std::move(handler));
+    }
+}
+
+template<class T>
+void Session<T>::read_from_upstream(boost::asio::mutable_buffers_1 buffer, ReadHandler handler)
+{
+    if constexpr (std::is_same_v<T, WsSocket>) {
+        out_socket.async_read_some(buffer, std::move(handler));
+    } else {
+        out_socket.async_read_some(buffer, std::move(handler));
+    }
+}
+
+template<class T>
+void Session<T>::start()
+{
+    auto self(this->shared_from_this());
     in_socket.async_read_some(boost::asio::buffer(in_buf),
         [this, self](const boost::system::error_code& ec, size_t len) {
             if (ec) {
@@ -56,9 +89,10 @@ void Session::start()
             }
         });
 }
-void Session::write_sock5_hanshake_reply(AuthReq& req)
+template<class T>
+void Session<T>::write_sock5_hanshake_reply(AuthReq& req)
 {
-    auto self(shared_from_this());
+    auto self(this->shared_from_this());
     auto it = std::find(req.methods.cbegin(), req.methods.cend(), AuthMethod::NO_AUTHENTICATION);
     if (it == req.methods.cend()) {
         ERROR_LOG << "Now only support no password auth";
@@ -86,9 +120,10 @@ void Session::write_sock5_hanshake_reply(AuthReq& req)
             }
         });
 }
-void Session::read_socks5_request()
+template<class T>
+void Session<T>::read_socks5_request()
 {
-    auto self(shared_from_this());
+    auto self(this->shared_from_this());
 
     in_socket.async_read_some(boost::asio::buffer(in_buf),
         [this, self](boost::system::error_code ec, std::size_t length) {
@@ -130,9 +165,10 @@ void Session::read_socks5_request()
         });
 }
 
-void Session::do_resolve()
+template<class T>
+void Session<T>::do_resolve()
 {
-    auto self(shared_from_this());
+    auto self(this->shared_from_this());
     resolver_.async_resolve(remote_host, remote_port,
         [this, self](const boost::system::error_code& ec, tcp::resolver::results_type results) {
             if (!ec && !results.empty()) {
@@ -143,11 +179,11 @@ void Session::do_resolve()
             }
         });
 }
-void Session::do_connect(tcp::endpoint endpoint)
+template<class T>
+void Session<T>::do_connect(tcp::endpoint endpoint)
 {
-    auto self(shared_from_this());
-    //
-    out_socket.lowest_layer().async_connect(endpoint,
+    auto self(this->shared_from_this());
+    get_out_raw_socket().async_connect(endpoint,
         [ this, self](const boost::system::error_code& ec) {
             if (!ec) {
                 DEBUG_LOG << "connected to " << remote_host << ":" << remote_port;
@@ -158,21 +194,23 @@ void Session::do_connect(tcp::endpoint endpoint)
             }
         });
 }
-void Session::do_ssl_handshake()
+template<class T>
+void Session<T>::do_ssl_handshake()
 {
-    auto self(shared_from_this());
-    out_socket.async_handshake(boost::asio::ssl::stream_base::client, [this, self](const boost::system::error_code& error) {
-        if (!error) {
-            do_sent_v_req();
+    auto self(this->shared_from_this());
+    perform_ssl_handshake([this, self](const boost::system::error_code& ec) {
+        if (!ec) {
+            after_ssl_handshake(self);
         } else {
-            ERROR_LOG << "ssl handshake failed :" << error.message();
+            ERROR_LOG << "ssl handshake failed :" << ec.message();
             destroy();
         }
     });
 }
-void Session::do_sent_v_req()
+template<class T>
+void Session<T>::do_sent_v_req()
 {
-    auto self(shared_from_this());
+    auto self(this->shared_from_this());
     message_buf.clear();
     VRequest request;
 
@@ -185,7 +223,7 @@ void Session::do_sent_v_req()
     request.stream(message_buf);
     DEBUG_LOG << "v protocol request -> " << request.user_name << "@" << request.address << ":" << request.port;
 
-    boost::asio::async_write(out_socket, boost::asio::buffer(message_buf),
+    write_to_upstream(message_buf.data(), message_buf.size(),
         [this, self](boost::system::error_code ec, std::size_t length) {
             if (!ec) {
                 state_ = FORWARD;
@@ -200,9 +238,10 @@ void Session::do_sent_v_req()
             }
         });
 }
-void Session::write_socks5_response()
+template<class T>
+void Session<T>::write_socks5_response()
 {
-    auto self(shared_from_this());
+    auto self(this->shared_from_this());
 
     {
         Reply reply;
@@ -210,8 +249,8 @@ void Session::write_socks5_response()
         reply.reserved = 0x00;
         reply.addrtype = ADDRTYPE::V4;
         reply.repResult = 0x00;
-        reply.realRemoteIP = out_socket.lowest_layer().remote_endpoint().address().to_v4().to_uint();
-        reply.realRemotePort = out_socket.lowest_layer().remote_endpoint().port();
+        reply.realRemoteIP = get_out_raw_socket().remote_endpoint().address().to_v4().to_uint();
+        reply.realRemotePort = get_out_raw_socket().remote_endpoint().port();
         message_buf.clear();
         reply.stream(message_buf);
     }
@@ -227,9 +266,10 @@ void Session::write_socks5_response()
             }
         });
 }
-void Session::http_connect_handshake(const std::string& initial)
+template<class T>
+void Session<T>::http_connect_handshake(const std::string& initial)
 {
-    auto self(shared_from_this());
+    auto self(this->shared_from_this());
     auto buf = std::make_shared<std::string>(initial);
     boost::asio::async_read_until(in_socket, boost::asio::dynamic_buffer(*buf), "\r\n",
         [this, self, buf](const boost::system::error_code& ec, size_t) {
@@ -250,9 +290,10 @@ void Session::http_connect_handshake(const std::string& initial)
         });
 }
 
-void Session::write_http_connect_response()
+template<class T>
+void Session<T>::write_http_connect_response()
 {
-    auto self(shared_from_this());
+    auto self(this->shared_from_this());
     response_sent_ = true;
     message_buf.clear();
     HttpResponse::ok(message_buf);
@@ -267,9 +308,10 @@ void Session::write_http_connect_response()
         });
 }
 
-void Session::read_packet(int direction)
+template<class T>
+void Session<T>::read_packet(int direction)
 {
-    auto self(shared_from_this());
+    auto self(this->shared_from_this());
 
     // We must divide reads by direction to not permit second read call on the same socket.
     if (direction & 0x01)
@@ -289,7 +331,7 @@ void Session::read_packet(int direction)
             });
 
     if (direction & 0x2)
-        out_socket.async_read_some(boost::asio::buffer(out_buf),
+        read_from_upstream(boost::asio::buffer(out_buf),
             [this, self](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
 
@@ -303,13 +345,14 @@ void Session::read_packet(int direction)
                 }
             });
 }
-void Session::write_packet(int direction, size_t len)
+template<class T>
+void Session<T>::write_packet(int direction, size_t len)
 {
-    auto self(shared_from_this());
+    auto self(this->shared_from_this());
 
     switch (direction) {
     case 1:
-        boost::asio::async_write(out_socket, boost::asio::buffer(in_buf, len),
+        write_to_upstream(in_buf.data(), len,
             [this, self, direction](boost::system::error_code ec, std::size_t length) {
                 if (!ec)
                     read_packet(direction);
@@ -333,18 +376,19 @@ void Session::write_packet(int direction, size_t len)
         break;
     }
 }
-boost::asio::ip::tcp::socket& Session::socket()
+template<class T>
+boost::asio::ip::tcp::socket& Session<T>::socket()
 {
     return in_socket;
 }
-void Session::destroy()
+template<class T>
+void Session<T>::destroy()
 {
     if (destroyed_)
         return;
     destroyed_ = true;
     ProxyStats::instance().sessionDestroyed();
     NOTICE_LOG << "session destroyed";
-    // Log::log_with_endpoint(in_endpoint, "disconnected, " + to_string(recv_len) + " bytes received, " + to_string(sent_len) + " bytes sent, lasted for " + to_string(time(nullptr) - start_time) + " seconds", Log::INFO);
     boost::system::error_code ec;
     resolver_.cancel();
 
@@ -354,10 +398,7 @@ void Session::destroy()
         in_socket.close(ec);
     }
 
-    if (out_socket.lowest_layer().is_open()) {
-        out_socket.lowest_layer().shutdown(tcp::socket::shutdown_both, ec);
-        out_socket.lowest_layer().close(ec);
-    }
+    destroy_out_socket(ec);
 
     if (session_id_) {
         server_.unregister_relay(session_id_);
@@ -368,9 +409,10 @@ void Session::destroy()
     }
 }
 
-void Session::do_handle_socks5_udp_associate()
+template<class T>
+void Session<T>::do_handle_socks5_udp_associate()
 {
-    auto self(shared_from_this());
+    auto self(this->shared_from_this());
 
     if (!server_.has_dtls()) {
         ERROR_LOG << "UDP ASSOCIATE rejected: DTLS not available";
@@ -426,9 +468,10 @@ void Session::do_handle_socks5_udp_associate()
         });
 }
 
-void Session::do_read_control()
+template<class T>
+void Session<T>::do_read_control()
 {
-    auto self(shared_from_this());
+    auto self(this->shared_from_this());
     in_socket.async_read_some(boost::asio::buffer(control_recv_buf_),
         [this, self](boost::system::error_code ec, std::size_t) {
             if (ec) {
@@ -440,19 +483,92 @@ void Session::do_read_control()
         });
 }
 
-void Session::on_udp_data_to_server(const std::string& frame)
+template<class T>
+void Session<T>::on_udp_data_to_server(const std::string& frame)
 {
     if (destroyed_) return;
 
     DEBUG_LOG << "UDP session --> server: " << frame.size() << " bytes";
-    auto self(shared_from_this());
+    auto self(this->shared_from_this());
 
-    if (out_socket.lowest_layer().is_open()) {
-        boost::asio::async_write(out_socket, boost::asio::buffer(frame),
+    if (get_out_raw_socket().is_open()) {
+        write_to_upstream(frame.data(), frame.size(),
             [this, self](boost::system::error_code ec, std::size_t) {
                 if (ec) {
                     DEBUG_LOG << "UDP relay: write to server failed: " << ec.message();
                 }
             });
+    }
+}
+
+// TlsClientSession
+inline TlsClientSession::TlsClientSession(boost::asio::io_context& context, boost::asio::ssl::context& ssl, Server& server)
+    : Session<TlsSocket>(context, ssl, server)
+{
+    out_socket.set_verify_mode(boost::asio::ssl::verify_none);
+}
+
+inline void TlsClientSession::perform_ssl_handshake(std::function<void(boost::system::error_code)> handler)
+{
+    out_socket.async_handshake(boost::asio::ssl::stream_base::client, [handler](const boost::system::error_code& ec) {
+        handler(ec);
+    });
+}
+
+inline void TlsClientSession::after_ssl_handshake(std::shared_ptr<Session<TlsSocket>> self)
+{
+    do_sent_v_req();
+}
+
+inline void TlsClientSession::destroy_out_socket(boost::system::error_code& ec)
+{
+    auto& sock = out_socket.next_layer();
+    if (sock.is_open()) {
+        sock.cancel(ec);
+        sock.shutdown(tcp::socket::shutdown_both, ec);
+        sock.close(ec);
+    }
+}
+
+// WsClientSession
+inline WsClientSession::WsClientSession(boost::asio::io_context& context, boost::asio::ssl::context& ssl, Server& server)
+    : Session<WsSocket>(context, ssl, server)
+{
+    out_socket.next_layer().set_verify_mode(boost::asio::ssl::verify_none);
+}
+
+inline void WsClientSession::perform_ssl_handshake(std::function<void(boost::system::error_code)> handler)
+{
+    out_socket.next_layer().async_handshake(boost::asio::ssl::stream_base::client, [handler](const boost::system::error_code& ec) {
+        handler(ec);
+    });
+}
+
+inline void WsClientSession::after_ssl_handshake(std::shared_ptr<Session<WsSocket>> self)
+{
+    do_ws_handshake(self);
+}
+
+inline void WsClientSession::do_ws_handshake(std::shared_ptr<Session<WsSocket>> self)
+{
+    auto& config = ConfigManage::instance().client_cfg;
+    out_socket.async_handshake(config.remote_addr, "/",
+        [this, self](const boost::system::error_code& ec) {
+            if (ec) {
+                ERROR_LOG << "websocket handshake failed: " << ec.message();
+                destroy();
+                return;
+            }
+            do_sent_v_req();
+        });
+}
+
+inline void WsClientSession::destroy_out_socket(boost::system::error_code& ec)
+{
+    auto& sock = out_socket.next_layer().next_layer();
+    if (sock.is_open()) {
+        sock.cancel(ec);
+        sock.shutdown(tcp::socket::shutdown_both, ec);
+        sock.close(ec);
     }
 }

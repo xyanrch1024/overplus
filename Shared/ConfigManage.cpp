@@ -71,6 +71,7 @@ void ClientConfig::populate(boost::property_tree::ptree& tree)
     password = SHA224(text_password);
     udp_enabled = tree.get("udp_enabled", false);
     dtls_port = tree.get("dtls_port", std::string());
+    useWebSocket = tree.get("useWebSocket", false);
 }
 void ClientConfig::setPassword(std::string&psswd)
 {

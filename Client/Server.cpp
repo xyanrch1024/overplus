@@ -14,6 +14,8 @@ Server::Server(const std::string& address, const std::string& port)
 {
     ip::tcp::resolver resover(io_context);
     local_endpoint = *resover.resolve(address, port).begin();
+    auto& cfg = ConfigManage::instance().client_cfg;
+    useWebSocket_ = cfg.useWebSocket;
 }
 
 void Server::start_accept()
@@ -79,10 +81,20 @@ void Server::on_dtls_data(const char* data, size_t len)
         NOTICE_LOG << "Shared DTLS: no relay for session_id=" << sid;
     }
 }
+
 void Server::do_accept()
 {
-    std::shared_ptr<Session> new_session = std::make_shared<Session>(io_context, ssl_ctx, *this);
-    acceptor_.async_accept(new_session->socket(), [this, new_session](const boost::system::error_code& ec) {
+    if (useWebSocket_) {
+        do_accept_ws();
+    } else {
+        do_accept_tls();
+    }
+}
+
+void Server::do_accept_tls()
+{
+    tls_session_ = std::make_shared<TlsClientSession>(io_context, ssl_ctx, *this);
+    acceptor_.async_accept(tls_session_->socket(), [this](const boost::system::error_code& ec) {
         if (!acceptor_.is_open()) {
             return;
         }
@@ -92,16 +104,41 @@ void Server::do_accept()
         }
         if (!ec) {
             boost::system::error_code error;
-            auto ep = new_session->socket().remote_endpoint(error);
+            auto ep = tls_session_->socket().remote_endpoint(error);
             NOTICE_LOG << "accept incoming connection :" << ep.address().to_string();
-            new_session->start();
+            tls_session_->start();
             ProxyStats::instance().sessionCreated();
         } else {
             NOTICE_LOG << "accept incoming connection fail:" << ec.message();
         }
-        do_accept();
+        do_accept_tls();
     });
 }
+
+void Server::do_accept_ws()
+{
+    ws_session_ = std::make_shared<WsClientSession>(io_context, ssl_ctx, *this);
+    acceptor_.async_accept(ws_session_->socket(), [this](const boost::system::error_code& ec) {
+        if (!acceptor_.is_open()) {
+            return;
+        }
+        if (ec == boost::asio::error::operation_aborted) {
+            NOTICE_LOG << "got cancel signal, stop calling myself";
+            return;
+        }
+        if (!ec) {
+            boost::system::error_code error;
+            auto ep = ws_session_->socket().remote_endpoint(error);
+            NOTICE_LOG << "accept incoming connection :" << ep.address().to_string();
+            ws_session_->start();
+            ProxyStats::instance().sessionCreated();
+        } else {
+            NOTICE_LOG << "accept incoming connection fail:" << ec.message();
+        }
+        do_accept_ws();
+    });
+}
+
 void Server::run()
 {
     NOTICE_LOG << "Server start..." << std::endl;
