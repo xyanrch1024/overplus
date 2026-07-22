@@ -7,6 +7,7 @@
 #include <Protocol/VProtocal/VRequest.h>
 #include <atomic>
 #include <boost/asio.hpp>
+#include <deque>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/ssl/context.hpp>
@@ -65,12 +66,29 @@ public:
     void udp_async_bidirectional_read(int direction);
     void udp_async_bidirectional_write(int, const std::string&, boost::asio::ip::udp::endpoint);
 
-     virtual void upstream_tcp_write(int direction, size_t len);
+    virtual void upstream_tcp_write(int direction, size_t len);
      virtual void upstream_udp_write(int direction, const std::string& packet);
      virtual void destroy();
 
+     using SendCallback = std::function<void(boost::system::error_code, std::size_t)>;
+     virtual void upstream_tcp_write_send(const char* data, size_t len, SendCallback handler);
+
 protected:
     static constexpr size_t MAX_BUFF_SIZE = 64 * 1024;
+
+    struct WriteOp {
+        std::vector<uint8_t> data;
+        size_t len = 0;
+        size_t sent = 0;
+    };
+    std::deque<WriteOp> write_queue_down_;
+    std::deque<WriteOp> write_queue_up_;
+    bool writing_down_ = false;
+    bool writing_up_ = false;
+    void enqueue_write(int direction, const char* data, size_t len);
+    void do_send_down();
+    void do_send_up();
+
     boost::asio::io_context& io_context_;
     T upstream_socket;
     tcp::socket downstream_socket;

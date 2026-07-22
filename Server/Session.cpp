@@ -362,6 +362,8 @@ void Session<T>::async_bidirectional_read(int direction)
     if (direction & 0x01)
         upstream_socket.async_read_some(boost::asio::buffer(in_buf),
             [this, self](boost::system::error_code ec, std::size_t length) {
+                if (state_ == DESTROY)
+                    return;
                 if (!ec) {
                     DEBUG_LOG << "upstream -->: " << std::to_string(length) << " bytes";
 
@@ -379,6 +381,8 @@ void Session<T>::async_bidirectional_read(int direction)
     if (direction & 0x2)
         downstream_socket.async_read_some(boost::asio::buffer(out_buf),
             [this, self](boost::system::error_code ec, std::size_t length) {
+                if (state_ == DESTROY)
+                    return;
                 if (!ec) {
 
                     DEBUG_LOG << "<-- downstream: " << std::to_string(length) << " bytes";
@@ -397,32 +401,119 @@ void Session<T>::async_bidirectional_read(int direction)
 template<class T>
 void Session<T>::async_bidirectional_write(int direction, size_t len)
 {
-    auto self =this->shared_from_this();
-
     switch (direction) {
     case 1:
-        boost::asio::async_write(downstream_socket,boost::asio::buffer(in_buf, len),
-            [this, self, direction](boost::system::error_code ec, std::size_t length) {
-                if (!ec)
-                    async_bidirectional_read(direction);
-                else {
-                    if (ec != boost::asio::error::operation_aborted) {
-                        DEBUG_LOG << "write to downstream: " << ec.message();
-                    }
-                    destroy();
-                    return;
-                }
-            });
+        enqueue_write(1, in_buf.data(), len);
+        async_bidirectional_read(1);
         break;
     case 2:
-        upstream_tcp_write(direction, len);
+        enqueue_write(2, out_buf.data(), len);
+        async_bidirectional_read(2);
         break;
     }
 }
 
 template<class T>
+void Session<T>::enqueue_write(int direction, const char* data, size_t len)
+{
+    auto& queue = (direction == 1) ? write_queue_down_ : write_queue_up_;
+    auto& writing = (direction == 1) ? writing_down_ : writing_up_;
+
+    WriteOp op;
+    op.data.assign(reinterpret_cast<const uint8_t*>(data),
+                   reinterpret_cast<const uint8_t*>(data) + len);
+    op.len = len;
+    op.sent = 0;
+    queue.push_back(std::move(op));
+
+    if (!writing) {
+        writing = true;
+        if (direction == 1)
+            do_send_down();
+        else
+            do_send_up();
+    }
+}
+
+template<class T>
+void Session<T>::do_send_down()
+{
+    if (write_queue_down_.empty()) {
+        writing_down_ = false;
+        return;
+    }
+
+    auto self = this->shared_from_this();
+    auto& front = write_queue_down_.front();
+
+    downstream_socket.async_send(
+        boost::asio::buffer(front.data.data() + front.sent,
+                            front.len - front.sent),
+        [this, self](boost::system::error_code ec, std::size_t bytes_sent) {
+            if (ec) {
+                if (ec != boost::asio::error::operation_aborted) {
+                    DEBUG_LOG << "downstream send failed: " << ec.message();
+                }
+                destroy();
+                return;
+            }
+
+            if (write_queue_down_.empty())
+                return;
+
+            write_queue_down_.front().sent += bytes_sent;
+            if (write_queue_down_.front().sent >= write_queue_down_.front().len) {
+                write_queue_down_.pop_front();
+            }
+
+            do_send_down();
+        });
+}
+
+template<class T>
+void Session<T>::do_send_up()
+{
+    if (write_queue_up_.empty()) {
+        writing_up_ = false;
+        return;
+    }
+
+    auto self = this->shared_from_this();
+    auto& front = write_queue_up_.front();
+
+    upstream_tcp_write_send(
+        reinterpret_cast<const char*>(front.data.data() + front.sent),
+        front.len - front.sent,
+        [this, self](boost::system::error_code ec, std::size_t bytes_sent) {
+            if (ec) {
+                if (ec != boost::asio::error::operation_aborted) {
+                    DEBUG_LOG << "upstream send failed: " << ec.message();
+                }
+                destroy();
+                return;
+            }
+
+            if (write_queue_up_.empty())
+                return;
+
+            write_queue_up_.front().sent += bytes_sent;
+            if (write_queue_up_.front().sent >= write_queue_up_.front().len) {
+                write_queue_up_.pop_front();
+            }
+
+            do_send_up();
+        });
+}
+
+template<class T>
 void Session<T>::upstream_tcp_write(int direction, size_t len)
 {
+    assert(0);
+}
+template<class T>
+void Session<T>::upstream_tcp_write_send(const char* data, size_t len, SendCallback handler)
+{
+    (void)data; (void)len; (void)handler;
     assert(0);
 }
 template<class T>
@@ -434,6 +525,10 @@ template<class T>
 void Session<T>::destroy()
 {
     DEBUG_LOG << "session destroyed";
+    write_queue_down_.clear();
+    write_queue_up_.clear();
+    writing_down_ = false;
+    writing_up_ = false;
     boost::system::error_code ec;
     if (downstream_udp_socket.is_open()) {
         downstream_udp_socket.cancel(ec);

@@ -43,6 +43,13 @@ void TlsSession::upstream_tcp_write(int direction, size_t len)
     });
 }
 
+void TlsSession::upstream_tcp_write_send(const char* data, size_t len, SendCallback handler)
+{
+    upstream_socket.async_write_some(
+        boost::asio::buffer(data, len),
+        std::move(handler));
+}
+
 void TlsSession::upstream_udp_write(int direction, const std::string& packet)
 {
     auto self(this->shared_from_this());

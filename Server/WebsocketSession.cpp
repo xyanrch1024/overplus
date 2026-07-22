@@ -73,6 +73,15 @@ void WebsocketSession::upstream_tcp_write(int direction, size_t len)
     });
 }
 
+void WebsocketSession::upstream_tcp_write_send(const char* data, size_t len, SendCallback handler)
+{
+    upstream_socket.async_write(
+        boost::asio::buffer(data, len),
+        [handler = std::move(handler)](boost::system::error_code ec, std::size_t length) {
+            handler(ec, length);
+        });
+}
+
 void WebsocketSession::upstream_udp_write(int direction, const std::string& packet)
 {
     auto self(this->shared_from_this());
