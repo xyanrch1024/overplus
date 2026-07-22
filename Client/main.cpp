@@ -110,19 +110,26 @@ int main(int argc, char* argv[])
     if (!enable_system_socks_proxy()) {
         return 1;
     }
-    Server server(config.local_addr, config.local_port);
+    Server* server = nullptr;
+    try {
+        server = new Server(config.local_addr, config.local_port);
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to initialize server: " << e.what() << std::endl;
+        return 1;
+    }
     QApplication a(argc, argv);
-    MainWindow w(server);
+    MainWindow w(*server);
     w.show();
-    std::shared_ptr<std::thread> backgroud(new std::thread([&server] {
-        server.run();
+    std::shared_ptr<std::thread> backgroud(new std::thread([server] {
+        server->run();
     }));
 
     auto rc = a.exec();
-    server.stop();
+    server->stop();
     backgroud->join();
 
     disable_system_socks_proxy();
+    delete server;
 
     return rc;
 }

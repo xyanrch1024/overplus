@@ -192,6 +192,7 @@ void MainWindow::autoSave()
     tree.put("password", config.text_password);
     tree.put("udp_enabled", config.udp_enabled);
     tree.put("dtls_port", config.dtls_port);
+    tree.put("useWebSocket", config.useWebSocket);
 
     try {
         boost::property_tree::write_json("client.json", tree);
