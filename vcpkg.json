@@ -1,0 +1,9 @@
+{
+  "name": "overplus",
+  "version-string": "1.0.2",
+  "dependencies": [
+    "boost",
+    "openssl",
+    "qt5-base"
+  ]
+}

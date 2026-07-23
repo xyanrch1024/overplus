@@ -1,0 +1,9 @@
+vcpkg
+build/
+.cache
+.idea/
+cmake-build-debug/
+client.json
+test_*.json
+*.log
+.opencode/
