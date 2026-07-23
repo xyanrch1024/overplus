@@ -16,13 +16,13 @@
 
 template<class T>
 Session<T>::Session(boost::asio::io_context& context, boost::asio::ssl::context& ssl, Server& server)
-    : out_socket(SocketFactory<T>::make(context, ssl))
-    , context_(context)
+    : context_(context)
     , in_socket(context_)
     , resolver_(context_)
     , in_buf(MAX_BUFF_SIZE)
     , out_buf(MAX_BUFF_SIZE)
     , ssl_ctx(ssl)
+    , out_socket(SocketFactory<T>::make(context_, ssl))
     , server_(server)
 {
     auto& config = ConfigManage::instance().client_cfg;

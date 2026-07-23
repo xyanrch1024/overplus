@@ -105,7 +105,6 @@ void ServerConfig::populate(boost::property_tree::ptree& tree)
     certificate_chain = tree.get("ssl.cert", std::string());
     server_private_key = tree.get("ssl.key", std::string());
     websocketEnabled = tree.get("websocketEnabled", false);
-    websocketNoSSL = tree.get("websocketNoSSL", false);
     dtls_enabled = tree.get("dtls_enabled", false);
     dtls_port = tree.get("dtls_port", std::string());
     dns_cache_ttl = tree.get("dns_cache_ttl", static_cast<int>(600));

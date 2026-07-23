@@ -1,7 +1,6 @@
 #pragma once
 #include "TlsSession.h"
 #include "WebsocketSession.h"
-#include "PlainWebsocketSession.h"
 #include "DtlsListener.h"
 #include <Shared/ConfigManage.h>
 #include <Shared/DnsCache.h>
@@ -25,7 +24,6 @@ private:
     void add_signals();
     void do_accept();
     void do_websocket_accept();
-    void do_plain_websocket_accept();
     void load_server_certificate(boost::asio::ssl::context& ctx);
     void start_dns_cleanup_timer();
     void start_dtls_listener();
@@ -42,5 +40,4 @@ private:
 public: 
     std::shared_ptr<TlsSession> new_connection_;
     std::shared_ptr<WebsocketSession> websocket_connection_;
-    std::shared_ptr<PlainWebsocketSession> plain_websocket_connection_;
 };

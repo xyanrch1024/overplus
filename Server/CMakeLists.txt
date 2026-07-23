@@ -6,7 +6,6 @@ endif()
 set(SRCS
         TlsSession.cpp
         WebsocketSession.cpp
-        PlainWebsocketSession.cpp
         Service.cpp
         DtlsListener.cpp
         DtlsServerSession.cpp

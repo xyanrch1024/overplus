@@ -20,20 +20,6 @@ Session<T>::Session(boost::asio::io_context& ioctx, boost::asio::ssl::context& s
 {
 }
 template<class T>
-Session<T>::Session(boost::asio::io_context& ioctx)
-
-    : io_context_(ioctx)
-    , upstream_socket(ioctx)
-    , downstream_socket(ioctx)
-    , resolver_(ioctx)
-    , udp_resolver(ioctx)
-    , downstream_udp_socket(ioctx)
-    , in_buf(MAX_BUFF_SIZE)
-    , out_buf(MAX_BUFF_SIZE)
-
-{
-}
-template<class T>
 void Session<T>::handle_custom_protocol()
 {
     auto self = this->shared_from_this();
