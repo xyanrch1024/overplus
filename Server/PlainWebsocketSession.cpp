@@ -1,6 +1,8 @@
 #include "PlainWebsocketSession.h"
 #include "Shared/ConfigManage.h"
 #include "Shared/Log.h"
+#include <boost/beast/core/ostream.hpp>
+
 PlainWebsocketSession::PlainWebsocketSession(boost::asio::io_context& io_ctx)
 : Session<websocket::stream<beast::tcp_stream>>(io_ctx)
 {
@@ -10,7 +12,7 @@ void PlainWebsocketSession::start()
     beast::get_lowest_layer(upstream_socket).expires_after(std::chrono::seconds(30));
 
     auto self = shared_from_this();
-    http::async_read(upstream_socket.next_layer(), http_buffer_, http_request_,
+    http::async_read(upstream_socket.next_layer(), read_buffer_, http_request_,
         [this, self](beast::error_code ec, std::size_t len) {
             on_http_header(ec, len);
         });
@@ -18,13 +20,16 @@ void PlainWebsocketSession::start()
 void PlainWebsocketSession::on_http_header(beast::error_code ec, std::size_t)
 {
     if (ec) {
-        ERROR_LOG << "http read header failed: " << ec.message();
+        ERROR_LOG << "http read failed: " << ec.message();
         destroy();
         return;
     }
     http_request_.set(http::field::connection, "Upgrade");
     http_request_.set(http::field::upgrade, "websocket");
     http_request_.version(11);
+
+    beast::ostream(write_buffer_) << http_request_;
+
     beast::get_lowest_layer(upstream_socket).expires_never();
 
     upstream_socket.set_option(
@@ -37,7 +42,7 @@ void PlainWebsocketSession::on_http_header(beast::error_code ec, std::size_t)
         }));
 
     auto self = shared_from_this();
-    upstream_socket.async_accept(http_request_,
+    upstream_socket.async_accept(write_buffer_.data(),
         [this, self](beast::error_code ec2) {
             on_accept(ec2);
         });
