@@ -9,8 +9,8 @@ public:
     }
     void start();
 
-    void on_http_header(beast::error_code ec, std::size_t);
     void on_accept(beast::error_code ec);
+    void on_http_header(beast::error_code ec, std::size_t);
     boost::asio::ip::tcp::socket& socket()
     {
         return beast::get_lowest_layer(upstream_socket).socket();
@@ -22,7 +22,6 @@ public:
     virtual void destroy();
 
 private:
-    beast::flat_buffer read_buffer_;
-    beast::flat_buffer write_buffer_;
+    beast::flat_buffer http_buffer_;
     http::request<http::string_body> http_request_;
 };
