@@ -9,24 +9,6 @@ void PlainWebsocketSession::start()
 {
     beast::get_lowest_layer(upstream_socket).expires_after(std::chrono::seconds(30));
 
-    auto self = shared_from_this();
-    http::async_read(upstream_socket.next_layer(), http_buffer_, http_request_,
-        [this, self](beast::error_code ec, std::size_t len) {
-            on_http_header(ec, len);
-        });
-}
-void PlainWebsocketSession::on_http_header(beast::error_code ec, std::size_t)
-{
-    if (ec) {
-        ERROR_LOG << "http read header failed: " << ec.message();
-        destroy();
-        return;
-    }
-    if (!http_request_.count(http::field::connection)) {
-        http_request_.set(http::field::connection, "Upgrade");
-    }
-    beast::get_lowest_layer(upstream_socket).expires_never();
-
     upstream_socket.set_option(
         websocket::stream_base::timeout::suggested(
             beast::role_type::server));
@@ -37,10 +19,11 @@ void PlainWebsocketSession::on_http_header(beast::error_code ec, std::size_t)
         }));
 
     auto self = shared_from_this();
-    upstream_socket.async_accept(http_request_,
-        [this, self](beast::error_code ec2) {
-            on_accept(ec2);
-        });
+    upstream_socket.async_accept(
+        [this,self](beast::error_code ec){
+            on_accept(ec);
+        }
+  );
 }
 void PlainWebsocketSession::on_accept(beast::error_code ec)
 {

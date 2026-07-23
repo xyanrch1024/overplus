@@ -10,7 +10,6 @@ public:
     void start();
 
     void on_accept(beast::error_code ec);
-    void on_http_header(beast::error_code ec, std::size_t);
     boost::asio::ip::tcp::socket& socket()
     {
         return beast::get_lowest_layer(upstream_socket).socket();
@@ -21,7 +20,4 @@ public:
     virtual void upstream_udp_write(int direction, const std::string& packet);
     virtual void destroy();
 
-private:
-    beast::flat_buffer http_buffer_;
-    http::request<http::string_body> http_request_;
 };
