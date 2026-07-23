@@ -34,6 +34,7 @@ struct ServerConfig {
     //
     //websocket
     bool websocketEnabled = false;
+    bool websocketNoSSL = false;
     //
     // dtls
     bool dtls_enabled = false;

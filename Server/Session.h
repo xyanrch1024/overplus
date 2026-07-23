@@ -48,6 +48,7 @@ public:
     };
 public:
     Session(boost::asio::io_context&, boost::asio::ssl::context&);
+    Session(boost::asio::io_context&);
 
     virtual ~Session(){}
 

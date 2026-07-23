@@ -29,15 +29,25 @@ Service::Service()
     ip::tcp::resolver resover(io_context);
     ip::tcp::endpoint endpoint = *resover.resolve(config_manage.server_cfg.local_addr,
                                                   config_manage.server_cfg.local_port).begin();
-    load_server_certificate(ssl_context_);
+    if (!config_manage.server_cfg.websocketNoSSL) {
+        load_server_certificate(ssl_context_);
+    }
     acceptor_.open(endpoint.protocol());
     acceptor_.set_option(tcp::acceptor::reuse_address(true));
     acceptor_.bind(endpoint);
     acceptor_.listen();
     if(config_manage.server_cfg.websocketEnabled)
     {
-        NOTICE_LOG << "listening for websocket connections";
-        do_websocket_accept();
+        if(config_manage.server_cfg.websocketNoSSL)
+        {
+            NOTICE_LOG << "listening for plain websocket connections (no SSL)";
+            do_plain_websocket_accept();
+        }
+        else
+        {
+            NOTICE_LOG << "listening for websocket connections";
+            do_websocket_accept();
+        }
     }
     else
     {
@@ -70,6 +80,27 @@ void Service::do_websocket_accept()
         do_websocket_accept();
 
 });
+}
+void Service::do_plain_websocket_accept()
+{
+    plain_websocket_connection_.reset(new PlainWebsocketSession(context_pool.get_io_context()));
+    acceptor_.async_accept(plain_websocket_connection_->socket(), [this](const boost::system::error_code &ec) {
+        if(!ec){
+            boost::system::error_code error;
+            auto ep = plain_websocket_connection_->socket().remote_endpoint(error);
+            if (!error) {
+                NOTICE_LOG << "accept incoming plain websocket connection " << ep.address().to_string()<<":"<<ep.port();
+                plain_websocket_connection_->start();
+            } else {
+                NOTICE_LOG << "get remote endpoint error: " << error.message();
+            }
+        }
+        else
+        {
+            NOTICE_LOG << "accept failed: " << ec.message();
+        }
+        do_plain_websocket_accept();
+    });
 }
 
 void Service::load_server_certificate(boost::asio::ssl::context &ctx) {
