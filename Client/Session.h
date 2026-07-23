@@ -82,16 +82,38 @@ protected:
     using WriteHandler = std::function<void(boost::system::error_code, std::size_t)>;
     using ReadHandler = std::function<void(boost::system::error_code, std::size_t)>;
 
-    void write_to_upstream(const char* data, size_t len, WriteHandler handler);
-    void write_to_upstream_buf(size_t len, WriteHandler handler);
-    void read_from_upstream(boost::asio::mutable_buffer buffer, ReadHandler handler);
+    template<class Handler>
+    void write_to_upstream(const char* data, size_t len, Handler&& handler)
+    {
+        if constexpr (std::is_same_v<T, WsSocket>) {
+            out_socket.async_write(boost::asio::buffer(data, len), std::forward<Handler>(handler));
+        } else {
+            boost::asio::async_write(out_socket, boost::asio::buffer(data, len), std::forward<Handler>(handler));
+        }
+    }
+
+    template<class Handler>
+    void write_to_upstream_buf(size_t len, Handler&& handler)
+    {
+        if constexpr (std::is_same_v<T, WsSocket>) {
+            out_socket.async_write(boost::asio::buffer(out_buf, len), std::forward<Handler>(handler));
+        } else {
+            boost::asio::async_write(out_socket, boost::asio::buffer(out_buf, len), std::forward<Handler>(handler));
+        }
+    }
+
+    template<class Handler>
+    void read_from_upstream(boost::asio::mutable_buffer buffer, Handler&& handler)
+    {
+        out_socket.async_read_some(buffer, std::forward<Handler>(handler));
+    }
 
     T out_socket;
 
 private:
     void on_udp_data_to_server(const std::string& frame);
 
-    static constexpr size_t MAX_BUFF_SIZE = 32 * 1024;
+    static constexpr size_t MAX_BUFF_SIZE = 64 * 1024;
     boost::asio::io_context& context_;
     tcp::socket in_socket;
 

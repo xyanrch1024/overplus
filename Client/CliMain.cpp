@@ -13,7 +13,7 @@ int main()
     auto& config = ConfigManage::instance().client_cfg;
 
     LogFile logfile_("overplus", 10 * 1024 * 1024, true, 3, 1024, 30);
-    logger::set_log_level(L_DEBUG);
+    logger::set_log_level(L_NOTICE);
     logger::set_log_destination(Destination::D_STDOUT);
     logger::setOutput([&](std::string&& buf) {
         std::cout << buf << std::endl;

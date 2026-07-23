@@ -33,36 +33,6 @@ Session<T>::Session(boost::asio::io_context& context, boost::asio::ssl::context&
 }
 
 template<class T>
-void Session<T>::write_to_upstream(const char* data, size_t len, WriteHandler handler)
-{
-    if constexpr (std::is_same_v<T, WsSocket>) {
-        out_socket.async_write(boost::asio::buffer(data, len), std::move(handler));
-    } else {
-        boost::asio::async_write(out_socket, boost::asio::buffer(data, len), std::move(handler));
-    }
-}
-
-template<class T>
-void Session<T>::write_to_upstream_buf(size_t len, WriteHandler handler)
-{
-    if constexpr (std::is_same_v<T, WsSocket>) {
-        out_socket.async_write(boost::asio::buffer(out_buf, len), std::move(handler));
-    } else {
-        boost::asio::async_write(out_socket, boost::asio::buffer(out_buf, len), std::move(handler));
-    }
-}
-
-template<class T>
-void Session<T>::read_from_upstream(boost::asio::mutable_buffer buffer, ReadHandler handler)
-{
-    if constexpr (std::is_same_v<T, WsSocket>) {
-        out_socket.async_read_some(buffer, std::move(handler));
-    } else {
-        out_socket.async_read_some(buffer, std::move(handler));
-    }
-}
-
-template<class T>
 void Session<T>::start()
 {
     auto self(this->shared_from_this());

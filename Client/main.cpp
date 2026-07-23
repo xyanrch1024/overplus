@@ -104,6 +104,7 @@ int main(int argc, char* argv[])
     LogFile logfile_("overplus", 10 * 1024 * 1024, true, 3, 1024, 30);
     g_logfile = &logfile_;
     logger::set_log_destination(Destination::D_FILE);
+    logger::set_log_level(L_NOTICE);
     logger::setFlush([&]() {
         logfile_.flush();
     });
