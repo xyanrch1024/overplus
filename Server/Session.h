@@ -7,7 +7,7 @@
 #include <Protocol/VProtocal/VRequest.h>
 #include <atomic>
 #include <boost/asio.hpp>
-#include <deque>
+#include <cstring>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/ssl/context.hpp>
@@ -34,7 +34,43 @@ using  udp =  boost::asio::ip::udp;
 
 using SSLSocket = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
 
+class SessionBuffer {
+public:
+    explicit SessionBuffer(size_t cap = 256 * 1024) : buf_(cap), capacity_(cap) {}
 
+    boost::asio::mutable_buffer prepare(size_t& len) {
+        size_t avail = capacity_ - used_;
+        if (avail == 0) { len = 0; return {buf_.data(), 0}; }
+        size_t n = std::min(len, avail);
+        size_t wpos = (read_pos_ + used_) % capacity_;
+        n = std::min(n, capacity_ - wpos);
+        len = n;
+        return {buf_.data() + wpos, n};
+    }
+
+    void commit(size_t n) { used_ += n; }
+
+    boost::asio::const_buffer peek() const {
+        size_t n = std::min(used_, capacity_ - read_pos_);
+        return {buf_.data() + read_pos_, n};
+    }
+
+    void consume(size_t n) {
+        read_pos_ = (read_pos_ + n) % capacity_;
+        used_ -= n;
+    }
+
+    bool empty() const { return used_ == 0; }
+    size_t size() const { return used_; }
+
+    void reset() { read_pos_ = 0; used_ = 0; }
+
+private:
+    std::vector<uint8_t> buf_;
+    size_t capacity_;
+    size_t read_pos_ = 0;
+    size_t used_ = 0;
+};
 
 template<class T>
 class Session :public std::enable_shared_from_this<Session<T>>
@@ -76,15 +112,10 @@ public:
 protected:
     static constexpr size_t MAX_BUFF_SIZE = 64 * 1024;
 
-    struct WriteOp {
-        std::vector<uint8_t> data;
-        size_t len = 0;
-        size_t sent = 0;
-    };
-    std::deque<WriteOp> write_queue_down_;
-    std::deque<WriteOp> write_queue_up_;
-    bool writing_down_ = false;
-    bool writing_up_ = false;
+    SessionBuffer ring_down_;
+    SessionBuffer ring_up_;
+    bool sending_down_ = false;
+    bool sending_up_ = false;
     void enqueue_write(int direction, const char* data, size_t len);
     void do_send_down();
     void do_send_up();
