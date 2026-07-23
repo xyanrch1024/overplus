@@ -14,7 +14,7 @@
     "websocketEnabled": false,
     "dtls_enabled": false,
     "dtls_port": "8443",
-    "dns_cache_ttl": 600,
-    "dns_cleanup_interval": 600,
+    "dns_cache_ttl": 7200,
+    "dns_cleanup_interval": 3600,
     "thread_count": 0
 }
