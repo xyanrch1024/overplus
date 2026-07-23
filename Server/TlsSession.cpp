@@ -26,7 +26,7 @@ boost::asio::ip::tcp::socket& TlsSession::socket()
     return upstream_socket.next_layer();
 }
 
-void TlsSession::upstream_tcp_write(int direction, size_t len)
+void TlsSession::upstream_tcp_write(Direction direction, size_t len)
 {
     auto self(this->shared_from_this());
     boost::asio::async_write(upstream_socket,boost::asio::buffer(out_buf, len), [this, self, direction](boost::system::error_code ec, std::size_t length) {
@@ -50,7 +50,7 @@ void TlsSession::upstream_tcp_write_send(const char* data, size_t len, SendCallb
         std::move(handler));
 }
 
-void TlsSession::upstream_udp_write(int direction, const std::string& packet)
+void TlsSession::upstream_udp_write(Direction direction, const std::string& packet)
 {
     auto self(this->shared_from_this());
     boost::asio::async_write(upstream_socket,boost::asio::buffer(packet),

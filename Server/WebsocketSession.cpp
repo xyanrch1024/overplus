@@ -57,7 +57,7 @@ void WebsocketSession::on_accept(beast::error_code ec)
     }
     handle_custom_protocol();
 }
-void WebsocketSession::upstream_tcp_write(int direction, size_t len)
+void WebsocketSession::upstream_tcp_write(Direction direction, size_t len)
 {
     auto self(this->shared_from_this());
     upstream_socket.async_write(boost::asio::buffer(out_buf, len), [this, self, direction](boost::system::error_code ec, std::size_t length) {
@@ -82,7 +82,7 @@ void WebsocketSession::upstream_tcp_write_send(const char* data, size_t len, Sen
         });
 }
 
-void WebsocketSession::upstream_udp_write(int direction, const std::string& packet)
+void WebsocketSession::upstream_udp_write(Direction direction, const std::string& packet)
 {
     auto self(this->shared_from_this());
     upstream_socket.async_write(boost::asio::buffer(packet),

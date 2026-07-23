@@ -36,7 +36,7 @@ using SSLSocket = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
 
 class SessionBuffer {
 public:
-    explicit SessionBuffer(size_t cap = 256 * 1024) : buf_(cap), capacity_(cap) {}
+    explicit SessionBuffer(size_t cap = 64 * 1024) : buf_(cap), capacity_(cap) {}
 
     boost::asio::mutable_buffer prepare(size_t& len) {
         size_t avail = capacity_ - used_;
@@ -62,6 +62,8 @@ public:
 
     bool empty() const { return used_ == 0; }
     size_t size() const { return used_; }
+    size_t capacity() const { return capacity_; }
+    bool has_space(size_t n) const { return used_ + n <= capacity_; }
 
     void reset() { read_pos_ = 0; used_ = 0; }
 
@@ -82,13 +84,18 @@ public:
         FORWARD,
         DESTROY
     };
+    enum Direction : int {
+        DIR_DOWN = 1,  // client → target
+        DIR_UP   = 2,  // target → client
+        DIR_BOTH = 3
+    };
 public:
     Session(boost::asio::io_context&, boost::asio::ssl::context&);
 
     virtual ~Session(){}
 
 
-    void async_bidirectional_read(int direction);
+    void async_bidirectional_read(Direction direction);
 
     void handle_custom_protocol();
 
@@ -97,13 +104,13 @@ public:
     void do_connect(tcp::endpoint endpoint);
     void udp_upstream_read();
 
-    void async_bidirectional_write(int, size_t);
+    void async_bidirectional_write(Direction, size_t);
     void handle_trojan_udp_proxy();
-    void udp_async_bidirectional_read(int direction);
-    void udp_async_bidirectional_write(int, const std::string&, boost::asio::ip::udp::endpoint);
+    void udp_async_bidirectional_read(Direction direction);
+    void udp_async_bidirectional_write(Direction, const std::string&, boost::asio::ip::udp::endpoint);
 
-    virtual void upstream_tcp_write(int direction, size_t len);
-     virtual void upstream_udp_write(int direction, const std::string& packet);
+    virtual void upstream_tcp_write(Direction direction, size_t len);
+     virtual void upstream_udp_write(Direction direction, const std::string& packet);
      virtual void destroy();
 
      using SendCallback = std::function<void(boost::system::error_code, std::size_t)>;
@@ -116,7 +123,9 @@ protected:
     SessionBuffer ring_up_;
     bool sending_down_ = false;
     bool sending_up_ = false;
-    void enqueue_write(int direction, const char* data, size_t len);
+    bool pausing_down_ = false;
+    bool pausing_up_ = false;
+    void enqueue_write(Direction direction, const char* data, size_t len);
     void do_send_down();
     void do_send_up();
 

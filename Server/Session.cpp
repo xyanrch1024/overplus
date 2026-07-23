@@ -124,7 +124,7 @@ void Session<T>::handle_trojan_udp_proxy()
         downstream_udp_socket.async_send_to(boost::asio::buffer(udp_packet.payload), ep,
             [this, self](boost::system::error_code ec, std::size_t length) {
                 if (!ec)
-                    udp_async_bidirectional_read(3);
+                    udp_async_bidirectional_read(DIR_BOTH);
                 else {
                     if (ec != boost::asio::error::operation_aborted) {
                         ERROR_LOG << "write to downstream (UDP): " << ec.message();
@@ -162,7 +162,7 @@ void Session<T>::handle_trojan_udp_proxy()
         downstream_udp_socket.async_send_to(boost::asio::buffer(udp_packet.payload), *iterator,
             [this, self](boost::system::error_code ec, std::size_t length) {
                 if (!ec)
-                    udp_async_bidirectional_read(3);
+                    udp_async_bidirectional_read(DIR_BOTH);
                 else {
                     if (ec != boost::asio::error::operation_aborted) {
                         ERROR_LOG << "write to downstream (UDP): " << ec.message();
@@ -175,11 +175,11 @@ void Session<T>::handle_trojan_udp_proxy()
     });
 }
 template<class T>
-void Session<T>::udp_async_bidirectional_read(int direction)
+void Session<T>::udp_async_bidirectional_read(Direction direction)
 {
     auto self = this->shared_from_this();
     // We must divide reads by direction to not permit second read call on the same socket.
-    if (direction & 0x01)
+    if (direction & DIR_DOWN)
         upstream_socket.async_read_some(boost::asio::buffer(in_buf),
             [this, self](boost::system::error_code ec, std::size_t length) {
                 if (!ec) {
@@ -199,7 +199,7 @@ void Session<T>::udp_async_bidirectional_read(int direction)
                         std::string dns_key = udp_packet.address.address + ":" + std::to_string(udp_packet.address.port);
                         udp::endpoint cached_ep;
                         if (DnsCacheManager::instance().get_udp(dns_key, cached_ep)) {
-                            udp_async_bidirectional_write(1, udp_packet.payload, cached_ep);
+                            udp_async_bidirectional_write(DIR_DOWN, udp_packet.payload, cached_ep);
                             return;
                         }
                         udp_resolver.async_resolve(udp_packet.address.address, std::to_string(udp_packet.address.port), [this, self, udp_packet, dns_key](const boost::system::error_code error, const udp::resolver::results_type& results) {
@@ -217,7 +217,7 @@ void Session<T>::udp_async_bidirectional_read(int direction)
                                 }
                             }
                             DnsCacheManager::instance().put_udp(dns_key, ep);
-                            udp_async_bidirectional_write(1, udp_packet.payload, ep);
+                            udp_async_bidirectional_write(DIR_DOWN, udp_packet.payload, ep);
                         });
                     } else {
                         if (upstream_udp_buff.size() - udp_buff_offset_ > MAX_BUFF_SIZE) {
@@ -225,7 +225,7 @@ void Session<T>::udp_async_bidirectional_read(int direction)
                             destroy();
                             return;
                         }
-                        udp_async_bidirectional_read(1);
+                        udp_async_bidirectional_read(DIR_DOWN);
                     }
 
                 } else // if (ec != boost::asio::error::eof)
@@ -239,7 +239,7 @@ void Session<T>::udp_async_bidirectional_read(int direction)
                 }
             });
 
-    if (direction & 0x2) {
+    if (direction & DIR_UP) {
         udp::endpoint udp_sender_endpoint;
         downstream_udp_socket.async_receive_from(boost::asio::buffer(out_buf), udp_sender_endpoint,
             [this, self, udp_sender_endpoint](boost::system::error_code ec, std::size_t length) {
@@ -248,7 +248,7 @@ void Session<T>::udp_async_bidirectional_read(int direction)
                     DEBUG_LOG << "<-- downstream: " << std::to_string(length) << " bytes";
                     auto packet = UDPPacket::generate(udp_sender_endpoint, std::string(out_buf.data(), length));
 
-                    udp_async_bidirectional_write(2, packet, boost::asio::ip::udp::endpoint());
+                    udp_async_bidirectional_write(DIR_UP, packet, boost::asio::ip::udp::endpoint());
                 } else // if (ec != boost::asio::error::eof)
                 {
                     if (ec != boost::asio::error::eof && ec != boost::asio::error::operation_aborted) {
@@ -263,12 +263,12 @@ void Session<T>::udp_async_bidirectional_read(int direction)
     }
 }
 template<class T>
-void Session<T>::udp_async_bidirectional_write(int direction, const std::string& packet, boost::asio::ip::udp::endpoint udp_ep)
+void Session<T>::udp_async_bidirectional_write(Direction direction, const std::string& packet, boost::asio::ip::udp::endpoint udp_ep)
 {
     auto self(this->shared_from_this());
 
     switch (direction) {
-    case 1:
+    case DIR_DOWN:
         downstream_udp_socket.async_send_to(boost::asio::buffer(packet), udp_ep,
             [this, self, direction](boost::system::error_code ec, std::size_t length) {
                 if (!ec)
@@ -283,7 +283,7 @@ void Session<T>::udp_async_bidirectional_write(int direction, const std::string&
                 }
             });
         break;
-    case 2:
+    case DIR_UP:
         upstream_udp_write(direction, packet);
         break;
     }
@@ -336,7 +336,7 @@ void Session<T>::do_connect(tcp::endpoint endpoint)
                     boost::asio::async_write(downstream_socket, boost::asio::buffer(vprotocol ? v_req.packed_buff : trojanReq.payload),
                         [this, self](boost::system::error_code ec, std::size_t length) {
                             if (!ec)
-                                async_bidirectional_read(3);
+                                async_bidirectional_read(DIR_BOTH);
                             else {
                                 ERROR_LOG << "write payload to downstream failed " << ec.message();
                                 destroy();
@@ -346,7 +346,7 @@ void Session<T>::do_connect(tcp::endpoint endpoint)
                 }
                 // read packet from both direction
                 else
-                    async_bidirectional_read(3);
+                    async_bidirectional_read(DIR_BOTH);
 
             } else {
                 ERROR_LOG << "failed to connect " << remote_host << ":" << remote_port << " " << ec.message();
@@ -355,17 +355,17 @@ void Session<T>::do_connect(tcp::endpoint endpoint)
         });
 }
 template<class T>
-void Session<T>::async_bidirectional_read(int direction)
+void Session<T>::async_bidirectional_read(Direction direction)
 {
     auto self = this->shared_from_this();
     // We must divide reads by direction to not permit second read call on the same socket.
-    if (direction & 0x01)
+    if (direction & DIR_DOWN)
         upstream_socket.async_read_some(boost::asio::buffer(in_buf),
             [this, self](boost::system::error_code ec, std::size_t length) {
                 if (state_ == DESTROY)
                     return;
                 if (!ec) {
-                    async_bidirectional_write(1, length);
+                    async_bidirectional_write(DIR_DOWN, length);
                 } else // if (ec != boost::asio::error::eof)
                 {
                     if (ec != boost::asio::error::eof && ec != boost::asio::error::operation_aborted) {
@@ -376,13 +376,13 @@ void Session<T>::async_bidirectional_read(int direction)
                 }
             });
 
-    if (direction & 0x2)
+    if (direction & DIR_UP)
         downstream_socket.async_read_some(boost::asio::buffer(out_buf),
             [this, self](boost::system::error_code ec, std::size_t length) {
                 if (state_ == DESTROY)
                     return;
                 if (!ec) {
-                    async_bidirectional_write(2, length);
+                    async_bidirectional_write(DIR_UP, length);
                 } else // if (ec != boost::asio::error::eof)
                 {
                     if (ec != boost::asio::error::eof && ec != boost::asio::error::operation_aborted) {
@@ -394,25 +394,33 @@ void Session<T>::async_bidirectional_read(int direction)
             });
 }
 template<class T>
-void Session<T>::async_bidirectional_write(int direction, size_t len)
+void Session<T>::async_bidirectional_write(Direction direction, size_t len)
 {
     switch (direction) {
-    case 1:
-        enqueue_write(1, in_buf.data(), len);
-        async_bidirectional_read(1);
+    case DIR_DOWN:
+        enqueue_write(DIR_DOWN, in_buf.data(), len);
+        if (ring_down_.has_space(MAX_BUFF_SIZE)) {
+            async_bidirectional_read(DIR_DOWN);
+        } else {
+            pausing_down_ = true;
+        }
         break;
-    case 2:
-        enqueue_write(2, out_buf.data(), len);
-        async_bidirectional_read(2);
+    case DIR_UP:
+        enqueue_write(DIR_UP, out_buf.data(), len);
+        if (ring_up_.has_space(MAX_BUFF_SIZE)) {
+            async_bidirectional_read(DIR_UP);
+        } else {
+            pausing_up_ = true;
+        }
         break;
     }
 }
 
 template<class T>
-void Session<T>::enqueue_write(int direction, const char* data, size_t len)
+void Session<T>::enqueue_write(Direction direction, const char* data, size_t len)
 {
-    auto& ring = (direction == 1) ? ring_down_ : ring_up_;
-    auto& sending = (direction == 1) ? sending_down_ : sending_up_;
+    auto& ring = (direction == DIR_DOWN) ? ring_down_ : ring_up_;
+    auto& sending = (direction == DIR_DOWN) ? sending_down_ : sending_up_;
 
     size_t remaining = len;
     size_t offset = 0;
@@ -428,7 +436,7 @@ void Session<T>::enqueue_write(int direction, const char* data, size_t len)
 
     if (!sending) {
         sending = true;
-        direction == 1 ? do_send_down() : do_send_up();
+        direction == DIR_DOWN ? do_send_down() : do_send_up();
     }
 }
 
@@ -437,6 +445,10 @@ void Session<T>::do_send_down()
 {
     if (ring_down_.empty()) {
         sending_down_ = false;
+        if (pausing_down_) {
+            pausing_down_ = false;
+            async_bidirectional_read(DIR_DOWN);
+        }
         return;
     }
 
@@ -463,6 +475,10 @@ void Session<T>::do_send_up()
 {
     if (ring_up_.empty()) {
         sending_up_ = false;
+        if (pausing_up_) {
+            pausing_up_ = false;
+            async_bidirectional_read(DIR_UP);
+        }
         return;
     }
 
@@ -486,7 +502,7 @@ void Session<T>::do_send_up()
 }
 
 template<class T>
-void Session<T>::upstream_tcp_write(int direction, size_t len)
+void Session<T>::upstream_tcp_write(Direction direction, size_t len)
 {
     assert(0);
 }
@@ -497,7 +513,7 @@ void Session<T>::upstream_tcp_write_send(const char* data, size_t len, SendCallb
     assert(0);
 }
 template<class T>
-void Session<T>::upstream_udp_write(int direction, const std::string& packet)
+void Session<T>::upstream_udp_write(Direction direction, const std::string& packet)
 {
     assert(0);
 }
@@ -509,6 +525,8 @@ void Session<T>::destroy()
     ring_up_.reset();
     sending_down_ = false;
     sending_up_ = false;
+    pausing_down_ = false;
+    pausing_up_ = false;
     boost::system::error_code ec;
     if (downstream_udp_socket.is_open()) {
         downstream_udp_socket.cancel(ec);
