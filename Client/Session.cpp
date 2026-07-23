@@ -53,7 +53,7 @@ void Session<T>::write_to_upstream_buf(size_t len, WriteHandler handler)
 }
 
 template<class T>
-void Session<T>::read_from_upstream(boost::asio::mutable_buffers_1 buffer, ReadHandler handler)
+void Session<T>::read_from_upstream(boost::asio::mutable_buffer buffer, ReadHandler handler)
 {
     if constexpr (std::is_same_v<T, WsSocket>) {
         out_socket.async_read_some(buffer, std::move(handler));

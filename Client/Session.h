@@ -84,7 +84,7 @@ protected:
 
     void write_to_upstream(const char* data, size_t len, WriteHandler handler);
     void write_to_upstream_buf(size_t len, WriteHandler handler);
-    void read_from_upstream(boost::asio::mutable_buffers_1 buffer, ReadHandler handler);
+    void read_from_upstream(boost::asio::mutable_buffer buffer, ReadHandler handler);
 
     T out_socket;
 
