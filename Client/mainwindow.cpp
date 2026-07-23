@@ -130,6 +130,7 @@ MainWindow::MainWindow(Server&s,QWidget *parent)
          ui->UDP_CHECKBOX->setChecked(config.udp_enabled);
          ui->label_dtls_port->setEnabled(config.udp_enabled);
          ui->DTLS_PORT->setEnabled(config.udp_enabled);
+         ui->WS_CHECKBOX->setChecked(config.useWebSocket);
     }
     connect(ui->UDP_CHECKBOX, &QCheckBox::stateChanged, this, [this](int state) {
         bool on = (state == Qt::Checked);
@@ -181,6 +182,7 @@ void MainWindow::autoSave()
     config.local_port = ui->LOCAL_PORT->text().toStdString();
     config.dtls_port = ui->DTLS_PORT->text().toStdString();
     config.udp_enabled = ui->UDP_CHECKBOX->isChecked();
+    config.useWebSocket = ui->WS_CHECKBOX->isChecked();
 
     boost::property_tree::ptree tree;
     tree.put("run_type", "client");
@@ -228,11 +230,13 @@ void MainWindow::onConnect()
     config.local_port = ui->LOCAL_PORT->text().toStdString();
     config.dtls_port = ui->DTLS_PORT->text().toStdString();
     config.udp_enabled = ui->UDP_CHECKBOX->isChecked();
+    config.useWebSocket = ui->WS_CHECKBOX->isChecked();
 
     auto psswd = ui->HOST_PASSWD->text().toStdString();
     config.setPassword(psswd);
     NOTICE_LOG<<"Read config from user input:"<<config.remote_addr<<":"<< config.remote_port
-              <<" dtls:"<<config.dtls_port<<" udp:"<<config.udp_enabled;
+              <<" dtls:"<<config.dtls_port<<" udp:"<<config.udp_enabled
+              <<" ws:"<<config.useWebSocket;
 
     ui->UDP_STATUS->setText(config.udp_enabled ? "Active" : "Disabled");
     ui->UDP_STATUS->setStyleSheet(config.udp_enabled ?

@@ -125,11 +125,21 @@
            <property name="text"><string>UDP Proxy</string></property>
           </widget>
          </item>
-         <item row="4" column="1">
-          <widget class="QCheckBox" name="UDP_CHECKBOX">
-           <property name="text"><string>Enable UDP ASSOCIATE (DTLS)</string></property>
-          </widget>
-         </item>
+          <item row="4" column="1">
+           <widget class="QCheckBox" name="UDP_CHECKBOX">
+            <property name="text"><string>Enable UDP ASSOCIATE (DTLS)</string></property>
+           </widget>
+          </item>
+          <item row="5" column="0">
+           <widget class="QLabel" name="label_ws">
+            <property name="text"><string>WebSocket</string></property>
+           </widget>
+          </item>
+          <item row="5" column="1">
+           <widget class="QCheckBox" name="WS_CHECKBOX">
+            <property name="text"><string>Use WebSocket (anti-censorship)</string></property>
+           </widget>
+          </item>
       </layout>
      </widget>
     </item>
@@ -384,7 +394,8 @@
    <tabstop>HOST_PASSWD</tabstop>
    <tabstop>LOCAL_PORT</tabstop>
    <tabstop>DTLS_PORT</tabstop>
-   <tabstop>UDP_CHECKBOX</tabstop>
+    <tabstop>UDP_CHECKBOX</tabstop>
+    <tabstop>WS_CHECKBOX</tabstop>
    <tabstop>CONNECT_BUTTON</tabstop>
    <tabstop>DISCONNECT_BUTTON</tabstop>
    <tabstop>PING_BUTTON</tabstop>
