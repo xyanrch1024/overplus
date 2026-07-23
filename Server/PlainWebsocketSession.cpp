@@ -22,9 +22,12 @@ void PlainWebsocketSession::on_http_header(beast::error_code ec, std::size_t)
         destroy();
         return;
     }
-    http_request_.set(http::field::connection, "Upgrade");
-    http_request_.set(http::field::upgrade, "websocket");
-    http_request_.version(11);
+    if (!http_request_.count(http::field::connection)) {
+        http_request_.set(http::field::connection, "Upgrade");
+    }
+    if (!http_request_.count(http::field::upgrade)) {
+        http_request_.set(http::field::upgrade, "websocket");
+    }
     beast::get_lowest_layer(upstream_socket).expires_never();
 
     upstream_socket.set_option(
