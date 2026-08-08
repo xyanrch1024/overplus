@@ -119,6 +119,8 @@ function install_overplus(){
     generate_certifiate
     cd
     blue "download overplus package ..."
+    rm -f /tmp/overplus.zip
+    rm -rf /tmp/overplus_extract
     wget -q $SOFTWARE_PACKAGE -O /tmp/overplus.zip
     unzip -o /tmp/overplus.zip -d /tmp/overplus_extract >/dev/null 2>&1
     
